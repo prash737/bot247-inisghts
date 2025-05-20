@@ -96,6 +96,14 @@ def generate_message_distribution(user_queries, assistant_responses, chatbot_id,
 
 def generate_sentiment_analysis(user_queries, chatbot_id, period):
     try:
+        if not user_queries:
+            plt.figure(figsize=(10, 10), dpi=150)
+            plt.text(0.5, 0.5, 'No queries available for sentiment analysis', 
+                    horizontalalignment='center', fontsize=20)
+            plt.axis('off')
+            save_plot_to_supabase(plt, "Sentiment analysis plot", chatbot_id, period)
+            return
+
         sentiments = {"Positive": 0, "Neutral": 0, "Negative": 0}
         for query in user_queries:
             analysis = TextBlob(query)
@@ -106,10 +114,18 @@ def generate_sentiment_analysis(user_queries, chatbot_id, period):
             else:
                 sentiments["Neutral"] += 1
 
-        plt.figure(figsize=(10, 10), dpi=150)
-        plt.pie(sentiments.values(), labels=sentiments.keys(), 
-                autopct="%1.1f%%", colors=["#90EE90", "#FFB366", "#FF7F7F"])
-        plt.title("Sentiment Analysis of User Queries", pad=20, fontsize=24)
+        # Only create pie chart if we have data
+        if sum(sentiments.values()) > 0:
+            plt.figure(figsize=(10, 10), dpi=150)
+            plt.pie(list(sentiments.values()), labels=list(sentiments.keys()), 
+                    autopct="%1.1f%%", colors=["#90EE90", "#FFB366", "#FF7F7F"])
+            plt.title("Sentiment Analysis of User Queries", pad=20, fontsize=24)
+        else:
+            plt.figure(figsize=(10, 10), dpi=150)
+            plt.text(0.5, 0.5, 'No sentiment data available', 
+                    horizontalalignment='center', fontsize=20)
+            plt.axis('off')
+            
         save_plot_to_supabase(plt, "Sentiment analysis plot", chatbot_id, period)
     except Exception as e:
         print(f"Error generating sentiment analysis: {e}")
