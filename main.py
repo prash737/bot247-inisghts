@@ -32,9 +32,22 @@ def fetch_all_conversations(chatbot_id):
 
 def get_distinct_chatbot_ids():
     try:
-        response = supabase.table('testing_zaps2').select('chatbot_id').execute()
-        distinct_ids = set(item['chatbot_id'] for item in response.data if item.get('chatbot_id'))
-        return list(distinct_ids)
+        all_ids = set()
+        offset = 0
+        while True:
+            response = supabase.table('testing_zaps2').select('chatbot_id').range(offset, offset + 999).execute()
+            if not response.data:
+                break
+            
+            batch_ids = set(item['chatbot_id'] for item in response.data if item.get('chatbot_id'))
+            all_ids.update(batch_ids)
+            
+            if len(response.data) < 1000:
+                break
+                
+            offset += 1000
+            
+        return list(all_ids)
     except Exception as e:
         print(f"Error fetching distinct chatbot IDs: {e}")
         return []
