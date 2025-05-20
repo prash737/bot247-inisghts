@@ -282,14 +282,20 @@ def process_chatbot_data():
     chatbot_ids = get_distinct_chatbot_ids()
     print(f"Found {len(chatbot_ids)} distinct chatbot IDs")
     
+    periods = [0, 2, 7, 10]  # Analysis periods in days
+    
     for chatbot_id in chatbot_ids:
         try:
             print(f"\nProcessing chatbot ID: {chatbot_id}")
             
-            # Get conversation insights
-            insights = get_conversation_insights(chatbot_id)
-            if insights:
-                print(f"Successfully generated insights for {chatbot_id}")
+            # Get conversation insights for different periods
+            for period in periods:
+                print(f"\nAnalyzing {period}-day period:")
+                insights = get_conversation_insights(chatbot_id, period)
+                if insights:
+                    print(f"Successfully generated insights for {chatbot_id} ({period} days)")
+                    print(f"Total conversations: {insights['total_conversations']}")
+                    print(f"Total queries: {insights['total_user_queries']}")
             
             # Extract leads
             conversations = fetch_all_conversations(chatbot_id)
