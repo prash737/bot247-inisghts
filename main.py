@@ -413,11 +413,7 @@ def process_chatbot_data():
             print(f"Error processing chatbot ID {chatbot_id}: {e}")
             continue
 
-    except Exception as e:
-                    print(f"Error processing chatbot ID {chatbot_id}: {e}")
-                    continue
-
-        print(f"\nCompleted data processing at {datetime.now()}")
+    print(f"\nCompleted data processing at {datetime.now()}")
 
 
 if __name__ == "__main__":
