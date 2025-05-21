@@ -233,7 +233,13 @@ def generate_monthly_conversation_heatmap(conversations, chatbot_id):
 
         # Generate improved heatmap plot
         plt.figure(figsize=(16, 8))
-        plt.imshow(heatmap_data, cmap='YlOrRd', aspect='auto')
+        # Normalize and display heatmap with proper scaling
+        max_val = np.max(heatmap_data)
+        if max_val > 0:
+            plt.imshow(heatmap_data, cmap='YlOrRd', aspect='auto', 
+                      norm=plt.Normalize(0, max_val))
+        else:
+            plt.imshow(heatmap_data, cmap='YlOrRd', aspect='auto')
         plt.colorbar(label='Number of Conversations')
         plt.yticks(range(12), ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
                               'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'])
