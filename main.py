@@ -96,7 +96,7 @@ def save_plot_to_supabase(plt, plot_name, chatbot_id, period):
         response = supabase.storage.from_(PLOT_BUCKET_NAME).upload(
             filename, 
             file_content, 
-            {"content-type": "image/png", "upsert": True}
+            {"contentType": "image/png", "upsert": "true"}
         )
         if not response:
             print(f"Error uploading {plot_name} to Supabase")
