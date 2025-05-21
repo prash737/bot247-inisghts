@@ -188,14 +188,18 @@ def get_conversation_insights(chatbot_id, period):
 
         filtered_conversations = []
         if period > 0:
-            current_date = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+            current_date = datetime.now().replace(hour=0,
+                                                  minute=0,
+                                                  second=0,
+                                                  microsecond=0)
             cutoff_date = current_date - timedelta(days=period)
 
             for convo in all_conversations:
                 try:
                     if "date_of_convo" not in convo:
                         continue
-                    convo_date = datetime.strptime(convo["date_of_convo"], "%Y-%m-%d")
+                    convo_date = datetime.strptime(convo["date_of_convo"],
+                                                   "%Y-%m-%d")
                     if convo_date >= cutoff_date:
                         filtered_conversations.append(convo)
                         processed_ids.add(convo["id"])
@@ -222,7 +226,8 @@ def get_conversation_insights(chatbot_id, period):
                     assistant_responses.append(message.get("content", ""))
 
         unanswered_queries = find_unanswered_queries(conversations)
-        unanswered_query_counts = dict(Counter(unanswered_queries).most_common())
+        unanswered_query_counts = dict(
+            Counter(unanswered_queries).most_common())
 
         unanswered_queries_json = {
             "queries": unanswered_query_counts,
@@ -230,13 +235,12 @@ def get_conversation_insights(chatbot_id, period):
         }
 
         top_user_queries_dict = dict(Counter(user_queries).most_common(10))
-        top_user_queries_json = {
-            "queries": top_user_queries_dict
-        }
+        top_user_queries_json = {"queries": top_user_queries_dict}
 
         # Generate all visualizations
         generate_top_10_user_queries(user_queries, chatbot_id, period)
-        generate_message_distribution(user_queries, assistant_responses, chatbot_id, period)
+        generate_message_distribution(user_queries, assistant_responses,
+                                      chatbot_id, period)
         generate_sentiment_analysis(user_queries, chatbot_id, period)
 
         # Insert insights into database
@@ -254,6 +258,10 @@ def get_conversation_insights(chatbot_id, period):
         supabase.table('insights').insert(insights_data).execute()
 
         return insights_data
+    except Exception as e:
+        print(
+            f"Error generating conversation insights for chatbot {chatbot_id}: {e}"
+        )
 
 
 def extract_leads(conversations):
@@ -400,9 +408,6 @@ def process_chatbot_data():
                         f"Total conversations: {insights['total_conversations']}"
                     )
                     print(f"Total queries: {insights['total_user_queries']}")
-                    print(
-                        f"Total queries: {insights['total_unanswered_queries']}"
-                    )
 
             # Extract leads
             conversations = fetch_all_conversations(chatbot_id)
@@ -422,4 +427,3 @@ if __name__ == "__main__":
         process_chatbot_data()
     except Exception as e:
         print(f"Error in main execution: {e}")
-`
