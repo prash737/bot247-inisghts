@@ -204,30 +204,24 @@ def generate_sentiment_analysis(user_queries, chatbot_id, period):
 
 def generate_monthly_conversation_heatmap(conversations, chatbot_id):
     try:
-        # Prepare data for heatmap
-        month_names = [calendar.month_name[i] for i in range(1, 13)]
-        days_in_month = [
-            calendar.monthrange(datetime.now().year, i)[1]
-            for i in range(1, 13)
-        ]
-        heatmap_data = np.zeros(
-            (12, max(days_in_month)))  # Initialize with zeros
-
+        # Initialize heatmap data
+        heatmap_data = np.zeros((12, 31))  # Fixed size for all months
+        
+        # Count conversations by date
         for convo in conversations:
             try:
                 if "date_of_convo" not in convo:
                     continue
-                convo_date = datetime.strptime(convo["date_of_convo"],
-                                               "%Y-%m-%d")
-                month = convo_date.month - 1  # Month index (0-11)
-                day = convo_date.day - 1  # Day index (0-30 or 0-27 etc.)
-                heatmap_data[month, day] += 1
+                convo_date = datetime.strptime(convo["date_of_convo"], "%Y-%m-%d")
+                month_idx = convo_date.month - 1
+                day_idx = convo_date.day - 1
+                heatmap_data[month_idx, day_idx] += 1
             except ValueError as ve:
-                print(
-                    f"ValueError processing date {convo.get('date_of_convo', 'N/A')}: {ve}"
-                )
+                print(f"ValueError processing date {convo.get('date_of_convo', 'N/A')}: {ve}")
+                continue
             except Exception as e:
                 print(f"Error processing date for heatmap: {e}")
+                continue
 
         # Print heatmap data for debugging
         print("\nMonthly Conversation Heatmap Matrix:")
@@ -237,13 +231,15 @@ def generate_monthly_conversation_heatmap(conversations, chatbot_id):
                 if heatmap_data[month_idx][day] > 0:
                     print(f"Day {day+1}: {int(heatmap_data[month_idx][day])} convos |", end=" ")
 
-        # Generate heatmap plot
+        # Generate improved heatmap plot
         plt.figure(figsize=(16, 8))
-        plt.imshow(heatmap_data, cmap='YlGnBu', aspect='auto')
+        plt.imshow(heatmap_data, cmap='YlOrRd', aspect='auto')
         plt.colorbar(label='Number of Conversations')
-        plt.yticks(ticks=range(12), labels=month_names)
+        plt.yticks(range(12), ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
+                              'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'])
+        plt.xticks(range(0, 31, 5), [str(i + 1) for i in range(0, 31, 5)])
         plt.xlabel('Day of the Month')
-        plt.title('Monthly Conversation Heatmap', fontsize=16)
+        plt.title('Monthly Conversation Heatmap', fontsize=16, pad=20)
 
         # Save the plot
         periods = [0, 2, 7, 10]  #  Heatmap is for all available data
