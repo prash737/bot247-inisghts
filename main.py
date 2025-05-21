@@ -79,10 +79,30 @@ def find_unanswered_queries(conversations):
 
 
 def save_plot_to_supabase(plt, plot_name, chatbot_id, period):
-    buffer = io.BytesIO()
-    plt.savefig(buffer, format='png', bbox_inches='tight')
-    buffer.seek(0)
-    return buffer
+    PLOT_BUCKET_NAME = "plots"
+    today = datetime.now().strftime("%Y-%m-%d")
+    dir_path = f"{chatbot_id}/{today}/{period}"
+    
+    try:
+        # Save plot to buffer
+        buf = io.BytesIO()
+        plt.savefig(buf, format='png')
+        buf.seek(0)
+        file_content = buf.read()
+        buf.close()
+        
+        # Upload to Supabase with full path
+        filename = f"{dir_path}/{plot_name}.png"
+        response = supabase.storage.from_(PLOT_BUCKET_NAME).upload(
+            filename, 
+            file_content, 
+            {"content-type": "image/png", "upsert": True}
+        )
+        if not response:
+            print(f"Error uploading {plot_name} to Supabase")
+            
+    except Exception as e:
+        print(f"Error saving plot to Supabase: {e}")
 
 
 def generate_top_10_user_queries(user_queries, chatbot_id, period):
