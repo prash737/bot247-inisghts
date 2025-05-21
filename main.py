@@ -418,4 +418,8 @@ def process_chatbot_data():
 
 if __name__ == "__main__":
     process_chatbot_data()
+    try:
+        process_chatbot_data()
+    except Exception as e:
+        print(f"Error in main execution: {e}")
 `
