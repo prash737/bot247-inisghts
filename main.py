@@ -229,6 +229,14 @@ def generate_monthly_conversation_heatmap(conversations, chatbot_id):
             except Exception as e:
                 print(f"Error processing date for heatmap: {e}")
 
+        # Print heatmap data for debugging
+        print("\nMonthly Conversation Heatmap Matrix:")
+        for month_idx, month in enumerate(['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']):
+            print(f"\n{month}:", end=" ")
+            for day in range(31):
+                if heatmap_data[month_idx][day] > 0:
+                    print(f"Day {day+1}: {int(heatmap_data[month_idx][day])} convos |", end=" ")
+
         # Generate heatmap plot
         plt.figure(figsize=(16, 8))
         plt.imshow(heatmap_data, cmap='YlGnBu', aspect='auto')
