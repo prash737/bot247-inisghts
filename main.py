@@ -95,10 +95,10 @@ def save_plot_to_supabase(plt, plot_name, chatbot_id, period):
         # Upload to Supabase with full path
         filename = f"{dir_path}/{plot_name}.png"
         response = supabase.storage.from_(PLOT_BUCKET_NAME).upload(
-            filename, 
-            file_content, 
-            {"contentType": "image/png", "upsert": "true"}
-        )
+            filename, file_content, {
+                "contentType": "image/png",
+                "upsert": "true"
+            })
         if not response:
             print(f"Error uploading {plot_name} to Supabase")
 
@@ -201,23 +201,31 @@ def generate_sentiment_analysis(user_queries, chatbot_id, period):
     finally:
         plt.close()
 
+
 def generate_monthly_conversation_heatmap(conversations, chatbot_id):
     try:
         # Prepare data for heatmap
         month_names = [calendar.month_name[i] for i in range(1, 13)]
-        days_in_month = [calendar.monthrange(datetime.now().year, i)[1] for i in range(1, 13)]
-        heatmap_data = np.zeros((12, max(days_in_month)))  # Initialize with zeros
+        days_in_month = [
+            calendar.monthrange(datetime.now().year, i)[1]
+            for i in range(1, 13)
+        ]
+        heatmap_data = np.zeros(
+            (12, max(days_in_month)))  # Initialize with zeros
 
         for convo in conversations:
             try:
                 if "date_of_convo" not in convo:
                     continue
-                convo_date = datetime.strptime(convo["date_of_convo"], "%Y-%m-%d")
+                convo_date = datetime.strptime(convo["date_of_convo"],
+                                               "%Y-%m-%d")
                 month = convo_date.month - 1  # Month index (0-11)
-                day = convo_date.day - 1      # Day index (0-30 or 0-27 etc.)
+                day = convo_date.day - 1  # Day index (0-30 or 0-27 etc.)
                 heatmap_data[month, day] += 1
             except ValueError as ve:
-                print(f"ValueError processing date {convo.get('date_of_convo', 'N/A')}: {ve}")
+                print(
+                    f"ValueError processing date {convo.get('date_of_convo', 'N/A')}: {ve}"
+                )
             except Exception as e:
                 print(f"Error processing date for heatmap: {e}")
 
@@ -230,13 +238,16 @@ def generate_monthly_conversation_heatmap(conversations, chatbot_id):
         plt.title('Monthly Conversation Heatmap', fontsize=16)
 
         # Save the plot
-        period = "all"  #  Heatmap is for all available data
-        save_plot_to_supabase(plt, "Monthly conversation heatmap", chatbot_id, period)
+        periods = [0, 2, 7, 10]  #  Heatmap is for all available data
+        for period in periods:
+            save_plot_to_supabase(plt, "Monthly conversation heatmap",
+                                  chatbot_id, period)
 
     except Exception as e:
         print(f"Error generating monthly conversation heatmap: {e}")
     finally:
         plt.close()
+
 
 def get_conversation_insights(chatbot_id, period):
     try:
@@ -296,7 +307,8 @@ def get_conversation_insights(chatbot_id, period):
 
         # Generate all visualizations
         generate_top_10_user_queries(user_queries, chatbot_id, period)
-        generate_message_distribution(user_queries, assistant_responses, chatbot_id, period)
+        generate_message_distribution(user_queries, assistant_responses,
+                                      chatbot_id, period)
         generate_sentiment_analysis(user_queries, chatbot_id, period)
         generate_monthly_conversation_heatmap(conversations, chatbot_id)
 
