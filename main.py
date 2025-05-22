@@ -410,6 +410,69 @@ def extract_leads(conversations):
                         convo_lead["found_data"]["phone"] = phone
                         has_valid_phone = True
 
+
+def update_tokens():
+    try:
+        print("\nStarting token update process")
+        chatbot_ids = get_distinct_chatbot_ids()
+        today = datetime.now().date().isoformat()
+
+        for chatbot_id in chatbot_ids:
+            try:
+                # Get today's conversations for this chatbot
+                response = supabase.table('testing_zaps2') \
+                    .select('input_tokens, output_tokens') \
+                    .eq('chatbot_id', chatbot_id) \
+                    .eq('date_of_convo', today) \
+                    .execute()
+                
+                if not response.data:
+                    continue
+                
+                # Calculate total tokens
+                total_input_tokens = sum(row.get('input_tokens', 0) for row in response.data)
+                total_output_tokens = sum(row.get('output_tokens', 0) for row in response.data)
+                
+                # Check if chatbot exists in chat_tokens
+                existing_tokens = supabase.table('chat_tokens') \
+                    .select('input_tokens, output_tokens') \
+                    .eq('chatbot_id', chatbot_id) \
+                    .execute()
+
+                if existing_tokens.data:
+                    # Update existing record
+                    current_input = existing_tokens.data[0].get('input_tokens', 0) or 0
+                    current_output = existing_tokens.data[0].get('output_tokens', 0) or 0
+                    
+                    supabase.table('chat_tokens') \
+                        .update({
+                            'input_tokens': current_input + total_input_tokens,
+                            'output_tokens': current_output + total_output_tokens
+                        }) \
+                        .eq('chatbot_id', chatbot_id) \
+                        .execute()
+                else:
+                    # Create new record
+                    supabase.table('chat_tokens') \
+                        .insert({
+                            'chatbot_id': chatbot_id,
+                            'input_tokens': total_input_tokens,
+                            'output_tokens': total_output_tokens
+                        }) \
+                        .execute()
+                
+                print(f"Updated tokens for chatbot {chatbot_id}")
+
+            except Exception as e:
+                print(f"Error updating tokens for chatbot {chatbot_id}: {e}")
+                continue
+
+        print("Token update process completed")
+    except Exception as e:
+        print(f"Error in update_tokens: {e}")
+
+
+
                 # Extract name
                 if not convo_lead["found_data"]["name"]:
                     content_lower = content.lower()
@@ -513,8 +576,8 @@ def process_chatbot_data():
 
 
 if __name__ == "__main__":
-    process_chatbot_data()
     try:
         process_chatbot_data()
+        update_tokens()
     except Exception as e:
         print(f"Error in main execution: {e}")
