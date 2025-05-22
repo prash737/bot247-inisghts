@@ -478,26 +478,17 @@ def update_tokens():
                     content_lower = content.lower()
                     for prefix in name_prefixes:
                         if prefix in content_lower:
-                            name_part = content_lower.split(prefix,
-                                                            1)[1].strip()
+                            name_part = content_lower.split(prefix, 1)[1].strip()
                             name_match = re.search(r'([^.,;!?\n]*)', name_part)
                             if name_match:
                                 potential_name = name_match.group(1).strip()
-                                stopwords = [
-                                    ' and ', ' from ', ' i ', ' am ', ' a ',
-                                    ' an ', ' the ', ' here ', ' to ', ' for '
-                                ]
+                                stopwords = [' and ', ' from ', ' i ', ' am ', ' a ', ' an ', ' the ', ' here ', ' to ', ' for ']
                                 for word in stopwords:
                                     if f" {word} " in f" {potential_name} ":
-                                        potential_name = potential_name.split(
-                                            word)[0].strip()
-                                potential_name = ' '.join(
-                                    word.capitalize()
-                                    for word in potential_name.split())
-                                if 1 <= len(potential_name.split(
-                                )) <= 3 and 2 < len(potential_name) < 40:
-                                    convo_lead["found_data"][
-                                        "name"] = potential_name
+                                        potential_name = potential_name.split(word)[0].strip()
+                                potential_name = ' '.join(word.capitalize() for word in potential_name.split())
+                                if 1 <= len(potential_name.split()) <= 3 and 2 < len(potential_name) < 40:
+                                    convo_lead["found_data"]["name"] = potential_name
                                     break
 
             if has_valid_email or has_valid_phone:
