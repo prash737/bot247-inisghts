@@ -387,10 +387,14 @@ def update_tokens():
 
                 if existing_tokens.data:
                     # Update existing record
-                    current_input = existing_tokens.data[0].get(
-                        'input_tokens', 0) or 0
-                    current_output = existing_tokens.data[0].get(
-                        'output_tokens', 0) or 0
+                    current_input = existing_tokens.data[0].get('input_tokens') or 0
+                    current_output = existing_tokens.data[0].get('output_tokens') or 0
+
+                    # Ensure we're working with integers
+                    current_input = int(current_input)
+                    current_output = int(current_output)
+                    total_input_tokens = int(total_input_tokens)
+                    total_output_tokens = int(total_output_tokens)
 
                     supabase.table('chat_tokens') \
                         .update({
