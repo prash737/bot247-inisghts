@@ -374,10 +374,11 @@ def update_tokens():
                     continue
 
                 # Calculate total tokens
+                # Convert None to 0 when summing tokens
                 total_input_tokens = sum(
-                    row.get('input_tokens', 0) for row in response.data)
+                    int(row.get('input_tokens') or 0) for row in response.data)
                 total_output_tokens = sum(
-                    row.get('output_tokens', 0) for row in response.data)
+                    int(row.get('output_tokens') or 0) for row in response.data)
 
                 # Check if chatbot exists in chat_tokens
                 existing_tokens = supabase.table('chat_tokens') \
@@ -386,15 +387,10 @@ def update_tokens():
                     .execute()
 
                 if existing_tokens.data:
-                    # Update existing record
-                    current_input = existing_tokens.data[0].get('input_tokens') or 0
-                    current_output = existing_tokens.data[0].get('output_tokens') or 0
-
-                    # Ensure we're working with integers
-                    current_input = int(current_input)
-                    current_output = int(current_output)
-                    total_input_tokens = int(total_input_tokens)
-                    total_output_tokens = int(total_output_tokens)
+                    # Update existing record with safe conversion of None to 0
+                    current_input = int(existing_tokens.data[0].get('input_tokens') or 0)
+                    current_output = int(existing_tokens.data[0].get('output_tokens') or 0)
+                    # No need for additional conversion since we already have integers
 
                     supabase.table('chat_tokens') \
                         .update({
