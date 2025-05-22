@@ -355,166 +355,6 @@ def get_conversation_insights(chatbot_id, period):
         )
 
 
-def extract_leads(conversations):
-    leads = {"total_leads": 0, "leads": []}
-
-    chatbot_conversations = {}
-    for convo in conversations:
-        chatbot_id = convo.get("chatbot_id", "unknown")
-        if chatbot_id not in chatbot_conversations:
-            chatbot_conversations[chatbot_id] = []
-        chatbot_conversations[chatbot_id].append(convo)
-
-    email_pattern = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
-    phone_pattern = r'(?:\+?(?:91|1)?[-\s]?)?(?:\(?\d{3}\)?[-\s]?)?\d{3}[-\s]?\d{4}'
-    name_prefixes = ['my name is', 'i am', 'this is', 'i\'m', 'call me']
-    MIN_PHONE_DIGITS = 8
-
-    for chatbot_id, chatbot_convos in chatbot_conversations.items():
-        chatbot_leads = []
-
-        for convo in chatbot_convos:
-            if "messages" not in convo:
-                continue
-
-            convo_lead = {
-                "conversation_id": convo.get("id", "unknown"),
-                "date": convo.get("date_of_convo", ""),
-                "found_data": {
-                    "name": None,
-                    "email": None,
-                    "phone": None
-                }
-            }
-
-            has_valid_email = False
-            has_valid_phone = False
-
-            for message in convo["messages"]:
-                if message.get("role") != "user":
-                    continue
-
-                content = message.get("content", "")
-
-                # Extract email
-                emails = re.findall(email_pattern, content)
-                if emails and not convo_lead["found_data"]["email"]:
-                    convo_lead["found_data"]["email"] = emails[0]
-                    has_valid_email = True
-
-                # Extract phone
-                phones = re.findall(phone_pattern, content)
-                if phones and not convo_lead["found_data"]["phone"]:
-                    phone = re.sub(r'[^0-9+]', '', phones[0])
-                    if len(phone.replace('+', '')) >= MIN_PHONE_DIGITS:
-                        convo_lead["found_data"]["phone"] = phone
-                        has_valid_phone = True
-
-
-def extract_leads(conversations):
-    leads = {"total_leads": 0, "leads": []}
-
-    chatbot_conversations = {}
-    for convo in conversations:
-        chatbot_id = convo.get("chatbot_id", "unknown")
-        if chatbot_id not in chatbot_conversations:
-            chatbot_conversations[chatbot_id] = []
-        chatbot_conversations[chatbot_id].append(convo)
-
-    email_pattern = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
-    phone_pattern = r'(?:\+?(?:91|1)?[-\s]?)?(?:\(?\d{3}\)?[-\s]?)?\d{3}[-\s]?\d{4}'
-    name_prefixes = ['my name is', 'i am', 'this is', 'i\'m', 'call me']
-    MIN_PHONE_DIGITS = 8
-
-    for chatbot_id, chatbot_convos in chatbot_conversations.items():
-        chatbot_leads = []
-
-        for convo in chatbot_convos:
-            if "messages" not in convo:
-                continue
-
-            convo_lead = {
-                "conversation_id": convo.get("id", "unknown"),
-                "date": convo.get("date_of_convo", ""),
-                "found_data": {
-                    "name": None,
-                    "email": None,
-                    "phone": None
-                }
-            }
-
-            has_valid_email = False
-            has_valid_phone = False
-
-            for message in convo["messages"]:
-                if message.get("role") != "user":
-                    continue
-
-                content = message.get("content", "")
-
-                # Extract email
-                emails = re.findall(email_pattern, content)
-                if emails and not convo_lead["found_data"]["email"]:
-                    convo_lead["found_data"]["email"] = emails[0]
-                    has_valid_email = True
-
-                # Extract phone
-                phones = re.findall(phone_pattern, content)
-                if phones and not convo_lead["found_data"]["phone"]:
-                    phone = re.sub(r'[^0-9+]', '', phones[0])
-                    if len(phone.replace('+', '')) >= MIN_PHONE_DIGITS:
-                        convo_lead["found_data"]["phone"] = phone
-                        has_valid_phone = True
-
-                # Extract name
-                if not convo_lead["found_data"]["name"]:
-                    content_lower = content.lower()
-                    for prefix in name_prefixes:
-                        if prefix in content_lower:
-                            name_part = content_lower.split(prefix, 1)[1].strip()
-                            name_match = re.search(r'([^.,;!?\n]*)', name_part)
-                            if name_match:
-                                potential_name = name_match.group(1).strip()
-                                stopwords = [' and ', ' from ', ' i ', ' am ', ' a ', ' an ', ' the ', ' here ', ' to ', ' for ']
-                                for word in stopwords:
-                                    if f" {word} " in f" {potential_name} ":
-                                        potential_name = potential_name.split(word)[0].strip()
-                                potential_name = ' '.join(word.capitalize() for word in potential_name.split())
-                                if 1 <= len(potential_name.split()) <= 3 and 2 < len(potential_name) < 40:
-                                    convo_lead["found_data"]["name"] = potential_name
-                                    break
-
-            if has_valid_email or has_valid_phone:
-                chatbot_leads.append(convo_lead)
-                leads["leads"].append(convo_lead)
-                leads["total_leads"] += 1
-
-        try:
-            for lead in chatbot_leads:
-                lead_data = {
-                    "chatbot_id": chatbot_id,
-                    "name": lead["found_data"]["name"] or "000",
-                    "email": lead["found_data"]["email"] or "000",
-                    "phone": lead["found_data"]["phone"] or "000"
-                }
-
-                if lead_data["email"] != "000" or lead_data["phone"] != "000":
-                    existing_lead = None
-                    if lead_data["email"] != "000":
-                        existing_lead = supabase.table('collected_leads').select('*').eq('email', lead_data["email"]).execute()
-
-                    if not existing_lead or not existing_lead.data:
-                        if lead_data["phone"] != "000":
-                            existing_lead = supabase.table('collected_leads').select('*').eq('phone', lead_data["phone"]).execute()
-
-                    if not existing_lead or not existing_lead.data:
-                        supabase.table('collected_leads').insert(lead_data).execute()
-                        print(f"Inserted lead for chatbot: {chatbot_id}, name: {lead_data['name']}, email: {lead_data['email']}, phone: {lead_data['phone']}")
-        except Exception as e:
-            print(f"Error inserting leads for chatbot {chatbot_id}: {e}")
-
-    return leads
-
 def update_tokens():
     try:
         print("\nStarting token update process")
@@ -529,14 +369,16 @@ def update_tokens():
                     .eq('chatbot_id', chatbot_id) \
                     .eq('date_of_convo', today) \
                     .execute()
-                
+
                 if not response.data:
                     continue
-                
+
                 # Calculate total tokens
-                total_input_tokens = sum(row.get('input_tokens', 0) for row in response.data)
-                total_output_tokens = sum(row.get('output_tokens', 0) for row in response.data)
-                
+                total_input_tokens = sum(
+                    row.get('input_tokens', 0) for row in response.data)
+                total_output_tokens = sum(
+                    row.get('output_tokens', 0) for row in response.data)
+
                 # Check if chatbot exists in chat_tokens
                 existing_tokens = supabase.table('chat_tokens') \
                     .select('input_tokens, output_tokens') \
@@ -545,9 +387,11 @@ def update_tokens():
 
                 if existing_tokens.data:
                     # Update existing record
-                    current_input = existing_tokens.data[0].get('input_tokens', 0) or 0
-                    current_output = existing_tokens.data[0].get('output_tokens', 0) or 0
-                    
+                    current_input = existing_tokens.data[0].get(
+                        'input_tokens', 0) or 0
+                    current_output = existing_tokens.data[0].get(
+                        'output_tokens', 0) or 0
+
                     supabase.table('chat_tokens') \
                         .update({
                             'input_tokens': current_input + total_input_tokens,
@@ -564,7 +408,7 @@ def update_tokens():
                             'output_tokens': total_output_tokens
                         }) \
                         .execute()
-                
+
                 print(f"Updated tokens for chatbot {chatbot_id}")
 
             except Exception as e:
@@ -574,60 +418,6 @@ def update_tokens():
         print("Token update process completed")
     except Exception as e:
         print(f"Error in update_tokens: {e}")
-                if not convo_lead["found_data"]["name"]:
-                    content_lower = content.lower()
-                    for prefix in name_prefixes:
-                        if prefix in content_lower:
-                            name_part = content_lower.split(prefix, 1)[1].strip()
-                            name_match = re.search(r'([^.,;!?\n]*)', name_part)
-                            if name_match:
-                                potential_name = name_match.group(1).strip()
-                                stopwords = [' and ', ' from ', ' i ', ' am ', ' a ', ' an ', ' the ', ' here ', ' to ', ' for ']
-                                for word in stopwords:
-                                    if f" {word} " in f" {potential_name} ":
-                                        potential_name = potential_name.split(word)[0].strip()
-                                potential_name = ' '.join(word.capitalize() for word in potential_name.split())
-                                if 1 <= len(potential_name.split()) <= 3 and 2 < len(potential_name) < 40:
-                                    convo_lead["found_data"]["name"] = potential_name
-                                    break
-
-            if has_valid_email or has_valid_phone:
-                chatbot_leads.append(convo_lead)
-                leads["leads"].append(convo_lead)
-                leads["total_leads"] += 1
-
-        try:
-            for lead in chatbot_leads:
-                lead_data = {
-                    "chatbot_id": chatbot_id,
-                    "name": lead["found_data"]["name"] or "000",
-                    "email": lead["found_data"]["email"] or "000",
-                    "phone": lead["found_data"]["phone"] or "000"
-                }
-
-                if lead_data["email"] != "000" or lead_data["phone"] != "000":
-                    existing_lead = None
-                    if lead_data["email"] != "000":
-                        existing_lead = supabase.table(
-                            'collected_leads').select('*').eq(
-                                'email', lead_data["email"]).execute()
-
-                    if not existing_lead or not existing_lead.data:
-                        if lead_data["phone"] != "000":
-                            existing_lead = supabase.table(
-                                'collected_leads').select('*').eq(
-                                    'phone', lead_data["phone"]).execute()
-
-                    if not existing_lead or not existing_lead.data:
-                        supabase.table('collected_leads').insert(
-                            lead_data).execute()
-                        print(
-                            f"Inserted lead for chatbot: {chatbot_id}, name: {lead_data['name']}, email: {lead_data['email']}, phone: {lead_data['phone']}"
-                        )
-        except Exception as e:
-            print(f"Error inserting leads for chatbot {chatbot_id}: {e}")
-
-    return leads
 
 
 def process_chatbot_data():
@@ -654,11 +444,6 @@ def process_chatbot_data():
                     )
                     print(f"Total queries: {insights['total_user_queries']}")
 
-            # Extract leads
-            conversations = fetch_all_conversations(chatbot_id)
-            leads = extract_leads(conversations)
-            print(f"Processed {leads['total_leads']} leads for {chatbot_id}")
-
         except Exception as e:
             print(f"Error processing chatbot ID {chatbot_id}: {e}")
             continue
@@ -668,7 +453,7 @@ def process_chatbot_data():
 
 if __name__ == "__main__":
     try:
-        process_chatbot_data()
+        # process_chatbot_data()
         update_tokens()
     except Exception as e:
         print(f"Error in main execution: {e}")
