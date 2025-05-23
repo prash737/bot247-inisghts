@@ -454,10 +454,70 @@ def process_chatbot_data():
     print(f"\nCompleted data processing at {datetime.now()}")
 
 
-if __name__ == "__main__":
+def update_job_status(job_statuses):
     try:
-        update_tokens()
-        process_chatbot_data()
+        # Get current timestamp
+        current_time = datetime.now().isoformat()
+        
+        # Create status entry
+        status_data = {
+            "created_at": current_time,
+            "job_status": job_statuses
+        }
+        
+        # Update insights_schedule table
+        supabase.table('insights_schedule').insert(status_data).execute()
+        print("Job statuses updated successfully")
+    except Exception as e:
+        print(f"Error updating job status: {e}")
+
+if __name__ == "__main__":
+    job_statuses = []
+    try:
+        # Run token update
+        try:
+            update_tokens()
+            job_statuses.append({
+                "job_name": "update_tokens",
+                "status": "success",
+                "timestamp": datetime.now().isoformat(),
+                "error": None
+            })
+        except Exception as e:
+            job_statuses.append({
+                "job_name": "update_tokens", 
+                "status": "failed",
+                "timestamp": datetime.now().isoformat(),
+                "error": str(e)
+            })
+
+        # Run data processing
+        try:
+            process_chatbot_data()
+            job_statuses.append({
+                "job_name": "process_chatbot_data",
+                "status": "success", 
+                "timestamp": datetime.now().isoformat(),
+                "error": None
+            })
+        except Exception as e:
+            job_statuses.append({
+                "job_name": "process_chatbot_data",
+                "status": "failed",
+                "timestamp": datetime.now().isoformat(),
+                "error": str(e)
+            })
+
+        # Update job statuses in insights_schedule table
+        update_job_status(job_statuses)
 
     except Exception as e:
         print(f"Error in main execution: {e}")
+        # Record overall execution failure
+        job_statuses.append({
+            "job_name": "main_execution",
+            "status": "failed",
+            "timestamp": datetime.now().isoformat(),
+            "error": str(e)
+        })
+        update_job_status(job_statuses)
