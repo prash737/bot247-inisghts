@@ -378,7 +378,8 @@ def update_tokens():
                 total_input_tokens = sum(
                     int(row.get('input_tokens') or 0) for row in response.data)
                 total_output_tokens = sum(
-                    int(row.get('output_tokens') or 0) for row in response.data)
+                    int(row.get('output_tokens') or 0)
+                    for row in response.data)
 
                 # Check if chatbot exists in chat_tokens
                 existing_tokens = supabase.table('chat_tokens') \
@@ -388,8 +389,10 @@ def update_tokens():
 
                 if existing_tokens.data:
                     # Update existing record with safe conversion of None to 0
-                    current_input = int(existing_tokens.data[0].get('input_tokens') or 0)
-                    current_output = int(existing_tokens.data[0].get('output_tokens') or 0)
+                    current_input = int(
+                        existing_tokens.data[0].get('input_tokens') or 0)
+                    current_output = int(
+                        existing_tokens.data[0].get('output_tokens') or 0)
                     # No need for additional conversion since we already have integers
 
                     supabase.table('chat_tokens') \
@@ -453,7 +456,8 @@ def process_chatbot_data():
 
 if __name__ == "__main__":
     try:
-        # process_chatbot_data()
         update_tokens()
+        process_chatbot_data()
+
     except Exception as e:
         print(f"Error in main execution: {e}")
