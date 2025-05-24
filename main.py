@@ -334,19 +334,40 @@ def get_conversation_insights(chatbot_id, period):
         generate_sentiment_analysis(user_queries, chatbot_id, period)
         generate_monthly_conversation_heatmap(all_conversations, chatbot_id)
 
-        # Insert insights into database
+        # Prepare insights data
+        current_date = datetime.now().date().isoformat()
         insights_data = {
             "chatbot_id": chatbot_id,
             "total_conversations": len(conversations),
             "total_user_queries": len(user_queries),
             "total_assistant_responses": len(assistant_responses),
-            "date_of_convo": datetime.now().date().isoformat(),
+            "date_of_convo": current_date,
             "period_range": period,
             "unanswered_queries": unanswered_queries_json,
-            "top_user_queries": top_user_queries_json
+            "top_user_queries": top_user_queries_json,
+            "created_at": datetime.now().isoformat()
         }
 
-        supabase.table('insights').insert(insights_data).execute()
+        # Check if a row with the same chatbot_id, period_range, and date_of_convo already exists
+        existing_record = supabase.table('insights') \
+            .select('id') \
+            .eq('chatbot_id', chatbot_id) \
+            .eq('period_range', period) \
+            .eq('date_of_convo', current_date) \
+            .execute()
+
+        if existing_record.data:
+            # Update existing record
+            record_id = existing_record.data[0]['id']
+            supabase.table('insights') \
+                .update(insights_data) \
+                .eq('id', record_id) \
+                .execute()
+            print(f"Updated existing insights record for chatbot {chatbot_id}, period {period}, date {current_date}")
+        else:
+            # Insert new record
+            supabase.table('insights').insert(insights_data).execute()
+            print(f"Inserted new insights record for chatbot {chatbot_id}, period {period}, date {current_date}")
 
         return insights_data
     except Exception as e:
