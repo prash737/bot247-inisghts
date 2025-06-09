@@ -1,0 +1,30 @@
+[
+  {
+    "role": "assistant",
+    "content": "Welcome to SIBM Bengaluru, one of the best management colleges in India. We are dedicated to promoting international understanding through quality education and fostering global competencies amongst our students. Please feel free to ask any questions you might have about our programs, admissions, or campus life. May we kindly request your name, email, and phone number to assist you further?"
+  },
+  {
+    "role": "user",
+    "content": "hi"
+  },
+  {
+    "role": "assistant",
+    "content": "Hello! Welcome to Symbiosis Institute of Business Management, Bengaluru. We're glad you're here.\n\nWe can assist you with various aspects of our programs and campus life.\n\nHere are some areas you might be interested in:\n\n**Programs Offered**: Learn about our MBA, MBA (Business Analytics), and MBA (Executive) programs.\n**Admissions**: Understand the application process, eligibility criteria, and important dates.\n**Campus Life**: Discover our student clubs, events, and facilities.\n**Faculty**: Get details of our esteemed faculty members.\n**Placements**: Learn about placement opportunities and the placement process.\n\nWould you like to ask any further questions?\nWhat about eligibility criteria?\nCan you explain the process?\n"
+  },
+  {
+    "role": "user",
+    "content": "What about eligibility criteria?"
+  },
+  {
+    "role": "assistant",
+    "content": "The eligibility criteria for the MBA program at SIBM Bengaluru are as follows:\n\n**Eligibility Criteria**\n*   You should be a graduate from any recognized University/Institution with a minimum of 50% marks or an equivalent grade (45% for SC/ST).\n*   If you're appearing for your final year exams, you can still apply, but your admission depends on you achieving the minimum marks.\n*   Candidates with qualifications from foreign universities need an equivalence certificate from the Association of Indian Universities (AIU).\n\nWould you like to ask any further questions?\nWhat about the selection process?\nAre there any scholarships available?\n"
+  },
+  {
+    "role": "user",
+    "content": "Are there any scholarships available?"
+  },
+  {
+    "role": "assistant",
+    "content": "Certainly!\n\n**Scholarships at SIBM Bengaluru**\n\n*   Yes, scholarships are available for deserving students.\n*   These are offered by the Symbiosis Society Foundation to encourage meritorious students.\n*   You can find details on scholarships/awards on the website.\n\nWould you like to ask any further questions?\n1.  Tell me about eligibility?\n2.  What about placement opportunities?\n"
+  }
+]
