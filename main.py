@@ -202,6 +202,99 @@ def generate_sentiment_analysis(user_queries, chatbot_id, period):
         plt.close()
 
 
+def generate_chat_volume_plot(conversations, chatbot_id, period):
+    try:
+        if period == 0:
+            # For all-time data, show monthly aggregation
+            monthly_counts = {}
+            for convo in conversations:
+                try:
+                    if "date_of_convo" not in convo:
+                        continue
+                    convo_date = datetime.strptime(convo["date_of_convo"], "%Y-%m-%d")
+                    month_key = convo_date.strftime("%Y-%m")
+                    monthly_counts[month_key] = monthly_counts.get(month_key, 0) + 1
+                except Exception as e:
+                    continue
+            
+            if not monthly_counts:
+                plt.figure(figsize=(12, 6))
+                plt.text(0.5, 0.5, 'No conversation data available', 
+                        horizontalalignment='center', fontsize=20)
+                plt.axis('off')
+            else:
+                dates = sorted(monthly_counts.keys())
+                counts = [monthly_counts[date] for date in dates]
+                
+                plt.figure(figsize=(14, 8), dpi=150)
+                plt.plot(dates, counts, marker='o', linewidth=2, markersize=6, color='#2E86C1')
+                plt.xlabel('Month', fontsize=14)
+                plt.ylabel('Number of Conversations', fontsize=14)
+                plt.title('Chat Volume Over Time (Monthly)', fontsize=18, pad=20)
+                plt.xticks(rotation=45)
+                plt.grid(True, alpha=0.3)
+                plt.tight_layout()
+        else:
+            # For specific periods, show daily data
+            current_date = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+            daily_counts = {}
+            
+            # Initialize all days in the period with 0 count
+            for i in range(period):
+                date_key = (current_date - timedelta(days=i)).strftime("%Y-%m-%d")
+                daily_counts[date_key] = 0
+            
+            # Count conversations for each day
+            for convo in conversations:
+                try:
+                    if "date_of_convo" not in convo:
+                        continue
+                    date_key = convo["date_of_convo"]
+                    if date_key in daily_counts:
+                        daily_counts[date_key] += 1
+                except Exception as e:
+                    continue
+            
+            # Sort dates and get corresponding counts
+            dates = sorted(daily_counts.keys())
+            counts = [daily_counts[date] for date in dates]
+            
+            # Format dates for display
+            formatted_dates = [datetime.strptime(date, "%Y-%m-%d").strftime("%m/%d") for date in dates]
+            
+            plt.figure(figsize=(14, 8), dpi=150)
+            if sum(counts) == 0:
+                plt.text(0.5, 0.5, f'No conversations in the last {period} days', 
+                        horizontalalignment='center', fontsize=20)
+                plt.axis('off')
+            else:
+                plt.plot(formatted_dates, counts, marker='o', linewidth=2, markersize=6, color='#2E86C1')
+                plt.xlabel('Date', fontsize=14)
+                plt.ylabel('Number of Conversations', fontsize=14)
+                plt.title(f'Chat Volume Over Time (Last {period} Days)', fontsize=18, pad=20)
+                plt.xticks(rotation=45)
+                plt.grid(True, alpha=0.3)
+                plt.tight_layout()
+                
+                # Add trend information
+                if len(counts) > 1:
+                    # Calculate percentage change from first to last day
+                    first_count = counts[0] if counts[0] > 0 else 1
+                    last_count = counts[-1]
+                    pct_change = ((last_count - first_count) / first_count) * 100
+                    
+                    trend_text = f"Trend: {pct_change:+.1f}% change"
+                    plt.text(0.02, 0.98, trend_text, transform=plt.gca().transAxes, 
+                            fontsize=12, verticalalignment='top',
+                            bbox=dict(boxstyle="round,pad=0.3", facecolor="lightblue", alpha=0.7))
+        
+        save_plot_to_supabase(plt, "Chat volume plot", chatbot_id, period)
+    except Exception as e:
+        print(f"Error generating chat volume plot: {e}")
+    finally:
+        plt.close()
+
+
 def generate_monthly_conversation_heatmap(conversations, chatbot_id):
     try:
         # Initialize heatmap data
@@ -332,6 +425,7 @@ def get_conversation_insights(chatbot_id, period):
         generate_message_distribution(user_queries, assistant_responses,
                                       chatbot_id, period)
         generate_sentiment_analysis(user_queries, chatbot_id, period)
+        generate_chat_volume_plot(conversations, chatbot_id, period)
         generate_monthly_conversation_heatmap(all_conversations, chatbot_id)
 
         # Prepare insights data
