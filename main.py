@@ -6,12 +6,11 @@ from collections import Counter
 import matplotlib.pyplot as plt
 import numpy as np
 from textblob import TextBlob
-import re
 import io
-import calendar
 import logging
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict, Optional
 import sys
+import os
 
 logging.basicConfig(
     level=logging.INFO,
@@ -22,8 +21,6 @@ logging.basicConfig(
     ]
 )
 logger = logging.getLogger(__name__)
-
-import os
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
@@ -205,22 +202,6 @@ def find_unanswered_queries(conversations: List[Dict]) -> List[str]:
     return unanswered_queries
 
 
-def clean_existing_plots(chatbot_id: str, period: int):
-    PLOT_BUCKET_NAME = "plots"
-    today = datetime.now().strftime("%Y-%m-%d")
-    dir_path = f"{chatbot_id}/{today}/{period}"
-
-    try:
-        response = supabase.storage.from_(PLOT_BUCKET_NAME).list(path=dir_path)
-        if response:
-            files_to_delete = [f"{dir_path}/{file['name']}" for file in response if file.get('name')]
-            if files_to_delete:
-                delete_response = supabase.storage.from_(PLOT_BUCKET_NAME).remove(files_to_delete)
-                logger.info(f"Cleaned {len(files_to_delete)} existing plots for {chatbot_id}/{period}")
-    except Exception as e:
-        logger.debug(f"Could not clean existing plots (normal for first run): {e}")
-
-
 def save_plot_to_supabase(plt_fig, plot_name: str, chatbot_id: str, period: int) -> bool:
     PLOT_BUCKET_NAME = "plots"
     today = datetime.now().strftime("%Y-%m-%d")
@@ -263,13 +244,10 @@ def save_plot_to_supabase(plt_fig, plot_name: str, chatbot_id: str, period: int)
 
 def safe_plot_generation(func):
     def wrapper(*args, **kwargs):
-        fig = None
         try:
             plt.ioff()
-            
             result = func(*args, **kwargs)
             return result
-            
         except Exception as e:
             logger.error(f"Error in plot generation {func.__name__}: {e}")
             return False
@@ -1619,8 +1597,6 @@ def get_conversation_insights(chatbot_id: str, period: int) -> Optional[Dict]:
 
         top_user_queries_dict = dict(Counter(user_queries).most_common(10))
         top_user_queries_json = {"queries": top_user_queries_dict}
-
-        clean_existing_plots(chatbot_id, period)
 
         plot_results = {}
         
