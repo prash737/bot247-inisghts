@@ -541,7 +541,10 @@ def get_conversation_insights(chatbot_id, period):
             "total_count": len(unanswered_queries)
         }
 
-        # Generate all visualizations (Top 10 User Queries plot removed)
+        top_user_queries_dict = dict(Counter(user_queries).most_common(10))
+        top_user_queries_json = {"queries": top_user_queries_dict}
+
+        # Generate all visualizations (Top 10 User Queries plot excluded)
         generate_message_distribution(user_queries, assistant_responses,
                                       chatbot_id, period)
         generate_sentiment_analysis(user_queries, chatbot_id, period)
@@ -559,6 +562,7 @@ def get_conversation_insights(chatbot_id, period):
             "date_of_convo": current_date,
             "period_range": period,
             "unanswered_queries": unanswered_queries_json,
+            "top_user_queries": top_user_queries_json,
             "created_at": datetime.now().isoformat()
         }
 
