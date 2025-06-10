@@ -150,48 +150,87 @@ def generate_sentiment_analysis(user_queries, chatbot_id, period):
             else:
                 sentiments["Neutral"] += 1
 
-        # Create horizontal bar chart if we have data
+        # Create enhanced donut chart if we have data
         if sum(sentiments.values()) > 0:
-            plt.figure(figsize=(12, 8), dpi=150)
+            plt.figure(figsize=(14, 10), dpi=150)
             
-            labels = list(sentiments.keys())
-            values = list(sentiments.values())
-            colors = ["#2ECC71", "#F39C12", "#E74C3C"]  # Green, Orange, Red
+            # Reorder for better visual flow: Positive, Neutral, Negative
+            ordered_labels = ["Positive", "Neutral", "Negative"]
+            ordered_values = [sentiments[label] for label in ordered_labels]
+            colors = ["#27AE60", "#F39C12", "#E74C3C"]  # Enhanced colors
             
-            # Create horizontal bar chart
-            bars = plt.barh(labels, values, color=colors, alpha=0.8, edgecolor='white', linewidth=2)
+            # Create donut chart with enhanced styling
+            wedges, texts, autotexts = plt.pie(
+                ordered_values, 
+                labels=ordered_labels, 
+                colors=colors,
+                autopct=lambda pct: f'{pct:.1f}%\n({int(pct/100*sum(ordered_values))})',
+                startangle=90,
+                pctdistance=0.75,
+                labeldistance=1.15,
+                textprops={'fontsize': 13, 'fontweight': 'bold'},
+                wedgeprops=dict(width=0.5, edgecolor='white', linewidth=3)
+            )
             
-            # Add value labels on bars
-            for i, (bar, value) in enumerate(zip(bars, values)):
-                percentage = (value / sum(values)) * 100
-                plt.text(bar.get_width() + max(values) * 0.01, bar.get_y() + bar.get_height()/2,
-                        f'{value} ({percentage:.1f}%)', 
-                        va='center', ha='left', fontsize=12, fontweight='bold')
+            # Style the percentage labels
+            for autotext in autotexts:
+                autotext.set_color('white')
+                autotext.set_fontweight('bold')
+                autotext.set_fontsize(12)
+                autotext.set_bbox(dict(boxstyle="round,pad=0.3", facecolor='black', alpha=0.6))
             
-            # Styling
-            plt.xlabel('Number of Queries', fontsize=14, fontweight='bold')
-            plt.title('User Query Sentiment Analysis', fontsize=18, fontweight='bold', pad=20)
-            plt.grid(axis='x', alpha=0.3, linestyle='--')
+            # Style the category labels
+            for text in texts:
+                text.set_fontsize(14)
+                text.set_fontweight('bold')
             
-            # Set x-axis limit to accommodate labels
-            plt.xlim(0, max(values) * 1.2)
+            # Add center content
+            total_queries = sum(ordered_values)
+            plt.text(0, 0.1, 'TOTAL', ha='center', va='center', 
+                    fontsize=16, fontweight='bold', color='#2C3E50')
+            plt.text(0, -0.1, f'{total_queries:,}', ha='center', va='center', 
+                    fontsize=24, fontweight='bold', color='#2C3E50')
+            plt.text(0, -0.25, 'QUERIES', ha='center', va='center', 
+                    fontsize=12, fontweight='bold', color='#7F8C8D')
             
-            # Remove top and right spines
-            ax = plt.gca()
-            ax.spines['top'].set_visible(False)
-            ax.spines['right'].set_visible(False)
-            ax.spines['left'].set_linewidth(0.5)
-            ax.spines['bottom'].set_linewidth(0.5)
+            # Create detailed legend with counts and percentages
+            legend_elements = []
+            for i, (label, value) in enumerate(zip(ordered_labels, ordered_values)):
+                percentage = (value / total_queries) * 100
+                legend_elements.append(f'{label}: {value:,} ({percentage:.1f}%)')
             
-            # Add total count annotation
-            total_queries = sum(values)
-            plt.text(0.02, 0.98, f'Total Queries Analyzed: {total_queries}',
-                    transform=ax.transAxes, fontsize=11, verticalalignment='top',
-                    bbox=dict(boxstyle="round,pad=0.3", facecolor="lightblue", alpha=0.7))
+            plt.legend(wedges, legend_elements, 
+                      title="Sentiment Breakdown", 
+                      loc="center left", 
+                      bbox_to_anchor=(1.1, 0, 0.5, 1),
+                      fontsize=12, 
+                      title_fontsize=14,
+                      frameon=True,
+                      fancybox=True,
+                      shadow=True)
             
+            # Enhanced title with subtitle
+            plt.suptitle('User Query Sentiment Analysis', 
+                        fontsize=20, fontweight='bold', y=0.95, color='#2C3E50')
+            plt.title('Distribution of Emotional Tone in User Interactions', 
+                     fontsize=14, style='italic', color='#7F8C8D', pad=20)
+            
+            # Add insights box
+            dominant_sentiment = ordered_labels[ordered_values.index(max(ordered_values))]
+            dominant_percentage = (max(ordered_values) / total_queries) * 100
+            
+            insight_text = f"📊 Insights:\n• Dominant sentiment: {dominant_sentiment} ({dominant_percentage:.1f}%)\n• Sample size: {total_queries:,} queries"
+            plt.text(1.15, 0.85, insight_text,
+                    transform=plt.gca().transAxes,
+                    fontsize=11,
+                    verticalalignment='top',
+                    bbox=dict(boxstyle="round,pad=0.5", facecolor="#ECF0F1", alpha=0.9, edgecolor='#BDC3C7'))
+            
+            plt.axis('equal')
             plt.tight_layout()
+            
         else:
-            plt.figure(figsize=(12, 8), dpi=150)
+            plt.figure(figsize=(14, 10), dpi=150)
             plt.text(0.5, 0.5, 'No sentiment data available',
                      horizontalalignment='center', fontsize=16)
             plt.axis('off')
