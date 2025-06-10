@@ -93,7 +93,7 @@ def clean_existing_plots(chatbot_id, period):
             files_to_delete = [f"{dir_path}/{file['name']}" for file in response]
             if files_to_delete:
                 supabase.storage.from_(PLOT_BUCKET_NAME).remove(files_to_delete)
-                print(f"Cleaned {len(files_to_delete)} existing plots for {chatbot_id}/{period}")
+                print(f"Cleaned {len(files_to_delete)} existing plots for {chatbot_id}/{period} (expecting 6 plots total)")
     except Exception as e:
         print(f"Note: Could not clean existing plots (this is normal for first run): {e}")
 
