@@ -127,75 +127,110 @@ def save_plot_to_supabase(plt, plot_name, chatbot_id, period):
 
 
 def generate_message_distribution(user_queries, assistant_responses, chatbot_id, period):
-    """Enhanced message distribution visualization with comprehensive metrics"""
+    """Message distribution pie chart"""
     try:
         plt.style.use('default')
-        fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(24, 18), dpi=150)
+        fig, ax = plt.subplots(1, 1, figsize=(12, 10), dpi=150)
         fig.patch.set_facecolor('white')
         
-        # Main title with improved styling
-        fig.suptitle('Conversation Flow & Message Analysis Dashboard', 
-                    fontsize=24, fontweight='bold', y=0.95, color='#2C3E50')
-        
         if not user_queries and not assistant_responses:
-            for ax in [ax1, ax2, ax3, ax4]:
-                ax.text(0.5, 0.5, 'No conversation data available', 
-                       ha='center', va='center', fontsize=16, color='#7F8C8D')
-                ax.set_xticks([])
-                ax.set_yticks([])
+            ax.text(0.5, 0.5, 'No conversation data available', 
+                   ha='center', va='center', fontsize=16, color='#7F8C8D')
+            ax.set_xticks([])
+            ax.set_yticks([])
         else:
             total_queries = len(user_queries)
             total_responses = len(assistant_responses)
             
-            # 1. Message Volume Distribution (Donut Chart)
             labels = ['User Queries', 'Assistant Responses']
             sizes = [total_queries, total_responses]
             colors = ['#3498DB', '#E74C3C']
             
-            wedges, texts, autotexts = ax1.pie(sizes, labels=labels, colors=colors, 
+            wedges, texts, autotexts = ax.pie(sizes, labels=labels, colors=colors, 
                                               autopct='%1.1f%%', startangle=90,
                                               wedgeprops=dict(width=0.6, edgecolor='white', linewidth=3),
                                               textprops={'fontsize': 14, 'fontweight': 'bold'})
             
             # Center text
-            ax1.text(0, 0.1, f'{total_queries + total_responses:,}', ha='center', va='center', 
+            ax.text(0, 0.1, f'{total_queries + total_responses:,}', ha='center', va='center', 
                     fontsize=20, fontweight='bold', color='#2C3E50')
-            ax1.text(0, -0.1, 'Total Messages', ha='center', va='center', 
+            ax.text(0, -0.1, 'Total Messages', ha='center', va='center', 
                     fontsize=12, color='#7F8C8D')
-            ax1.set_title('Message Volume Overview', fontsize=16, fontweight='bold', pad=20)
+        
+        ax.set_title('Message Distribution', fontsize=20, fontweight='bold', pad=20)
+        plt.tight_layout()
+        save_plot_to_supabase(plt, "Message distribution plot", chatbot_id, period)
+        
+    except Exception as e:
+        print(f"Error generating message distribution: {e}")
+    finally:
+        plt.close()
+
+
+def generate_message_length_analysis(user_queries, assistant_responses, chatbot_id, period):
+    """Message length distribution analysis"""
+    try:
+        plt.style.use('default')
+        fig, ax = plt.subplots(1, 1, figsize=(12, 8), dpi=150)
+        fig.patch.set_facecolor('white')
+        
+        if not user_queries and not assistant_responses:
+            ax.text(0.5, 0.5, 'No conversation data available', 
+                   ha='center', va='center', fontsize=16, color='#7F8C8D')
+            ax.set_xticks([])
+            ax.set_yticks([])
+        else:
+            query_lengths = [len(q.split()) for q in user_queries]
+            response_lengths = [len(r.split()) for r in assistant_responses]
             
-            # 2. Message Length Analysis
-            if user_queries and assistant_responses:
-                query_lengths = [len(q.split()) for q in user_queries]
-                response_lengths = [len(r.split()) for r in assistant_responses]
-                
-                # Create bins for better visualization
-                max_length = max(max(query_lengths) if query_lengths else 0, 
-                               max(response_lengths) if response_lengths else 0)
-                bins = np.linspace(0, min(max_length, 100), 25)
-                
-                ax2.hist(query_lengths, bins=bins, alpha=0.7, label='User Queries', 
-                        color='#3498DB', density=True, edgecolor='white')
-                ax2.hist(response_lengths, bins=bins, alpha=0.7, label='Assistant Responses', 
-                        color='#E74C3C', density=True, edgecolor='white')
-                
-                avg_query = np.mean(query_lengths)
-                avg_response = np.mean(response_lengths)
-                
-                ax2.axvline(avg_query, color='#2980B9', linestyle='--', linewidth=2,
-                           label=f'Avg Query: {avg_query:.1f} words')
-                ax2.axvline(avg_response, color='#C0392B', linestyle='--', linewidth=2,
-                           label=f'Avg Response: {avg_response:.1f} words')
-                
-                ax2.set_xlabel('Message Length (words)', fontsize=12, fontweight='bold')
-                ax2.set_ylabel('Density', fontsize=12, fontweight='bold')
-                ax2.set_title('Message Length Distribution', fontsize=16, fontweight='bold')
-                ax2.legend(fontsize=10, frameon=True, fancybox=True, shadow=True)
-                ax2.grid(True, alpha=0.3)
-                ax2.spines['top'].set_visible(False)
-                ax2.spines['right'].set_visible(False)
+            # Create bins for better visualization
+            max_length = max(max(query_lengths) if query_lengths else 0, 
+                           max(response_lengths) if response_lengths else 0)
+            bins = np.linspace(0, min(max_length, 100), 25)
             
-            # 3. Conversation Complexity Analysis
+            ax.hist(query_lengths, bins=bins, alpha=0.7, label='User Queries', 
+                    color='#3498DB', density=True, edgecolor='white')
+            ax.hist(response_lengths, bins=bins, alpha=0.7, label='Assistant Responses', 
+                    color='#E74C3C', density=True, edgecolor='white')
+            
+            avg_query = np.mean(query_lengths)
+            avg_response = np.mean(response_lengths)
+            
+            ax.axvline(avg_query, color='#2980B9', linestyle='--', linewidth=2,
+                       label=f'Avg Query: {avg_query:.1f} words')
+            ax.axvline(avg_response, color='#C0392B', linestyle='--', linewidth=2,
+                       label=f'Avg Response: {avg_response:.1f} words')
+            
+            ax.set_xlabel('Message Length (words)', fontsize=12, fontweight='bold')
+            ax.set_ylabel('Density', fontsize=12, fontweight='bold')
+            ax.legend(fontsize=10, frameon=True, fancybox=True, shadow=True)
+            ax.grid(True, alpha=0.3)
+            ax.spines['top'].set_visible(False)
+            ax.spines['right'].set_visible(False)
+        
+        ax.set_title('Message Length Distribution', fontsize=20, fontweight='bold', pad=20)
+        plt.tight_layout()
+        save_plot_to_supabase(plt, "Message length analysis plot", chatbot_id, period)
+        
+    except Exception as e:
+        print(f"Error generating message length analysis: {e}")
+    finally:
+        plt.close()
+
+
+def generate_message_complexity_analysis(user_queries, assistant_responses, chatbot_id, period):
+    """Message complexity distribution"""
+    try:
+        plt.style.use('default')
+        fig, ax = plt.subplots(1, 1, figsize=(12, 8), dpi=150)
+        fig.patch.set_facecolor('white')
+        
+        if not user_queries and not assistant_responses:
+            ax.text(0.5, 0.5, 'No conversation data available', 
+                   ha='center', va='center', fontsize=16, color='#7F8C8D')
+            ax.set_xticks([])
+            ax.set_yticks([])
+        else:
             all_messages = user_queries + assistant_responses
             complexity_data = {'Simple\n(1-5 words)': 0, 'Moderate\n(6-15 words)': 0, 
                              'Complex\n(16-30 words)': 0, 'Very Complex\n(31+ words)': 0}
@@ -215,23 +250,44 @@ def generate_message_distribution(user_queries, assistant_responses, chatbot_id,
             values = list(complexity_data.values())
             colors_complexity = ['#2ECC71', '#F39C12', '#E67E22', '#E74C3C']
             
-            bars = ax3.bar(categories, values, color=colors_complexity, alpha=0.8, 
+            bars = ax.bar(categories, values, color=colors_complexity, alpha=0.8, 
                           edgecolor='white', linewidth=2)
-            ax3.set_ylabel('Number of Messages', fontsize=12, fontweight='bold')
-            ax3.set_title('Message Complexity Distribution', fontsize=16, fontweight='bold')
-            ax3.grid(True, alpha=0.3, axis='y')
-            ax3.spines['top'].set_visible(False)
-            ax3.spines['right'].set_visible(False)
+            ax.set_ylabel('Number of Messages', fontsize=12, fontweight='bold')
+            ax.grid(True, alpha=0.3, axis='y')
+            ax.spines['top'].set_visible(False)
+            ax.spines['right'].set_visible(False)
             
             # Add value labels
             for bar, value in zip(bars, values):
                 if value > 0:
-                    ax3.text(bar.get_x() + bar.get_width()/2, bar.get_height() + max(values)*0.02,
+                    ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + max(values)*0.02,
                             f'{value:,}', ha='center', va='bottom', fontweight='bold', fontsize=11)
-            
-            # 4. Key Metrics Panel
-            ax4.axis('off')
-            ax4.set_title('Key Performance Metrics', fontsize=16, fontweight='bold', y=0.95)
+        
+        ax.set_title('Message Complexity Distribution', fontsize=20, fontweight='bold', pad=20)
+        plt.tight_layout()
+        save_plot_to_supabase(plt, "Message complexity analysis plot", chatbot_id, period)
+        
+    except Exception as e:
+        print(f"Error generating message complexity analysis: {e}")
+    finally:
+        plt.close()
+
+
+def generate_key_performance_metrics(user_queries, assistant_responses, chatbot_id, period):
+    """Key performance metrics panel"""
+    try:
+        plt.style.use('default')
+        fig, ax = plt.subplots(1, 1, figsize=(12, 10), dpi=150)
+        fig.patch.set_facecolor('white')
+        ax.axis('off')
+        
+        if not user_queries and not assistant_responses:
+            ax.text(0.5, 0.5, 'No conversation data available', 
+                   ha='center', va='center', fontsize=16, color='#7F8C8D')
+        else:
+            total_queries = len(user_queries)
+            total_responses = len(assistant_responses)
+            all_messages = user_queries + assistant_responses
             
             # Calculate metrics
             avg_query_length = np.mean([len(q.split()) for q in user_queries]) if user_queries else 0
@@ -248,14 +304,14 @@ def generate_message_distribution(user_queries, assistant_responses, chatbot_id,
                 ('Total Word Count', f'{sum(len(msg.split()) for msg in all_messages):,}')
             ]
             
-            y_start = 0.8
+            y_start = 0.85
             for i, (metric, value) in enumerate(metrics):
                 y_pos = y_start - (i * 0.12)
                 
                 # Metric box
-                ax4.text(0.05, y_pos, metric, fontsize=13, fontweight='bold', 
-                        transform=ax4.transAxes, va='center')
-                ax4.text(0.95, y_pos, value, fontsize=13, transform=ax4.transAxes, 
+                ax.text(0.05, y_pos, metric, fontsize=16, fontweight='bold', 
+                        transform=ax.transAxes, va='center')
+                ax.text(0.95, y_pos, value, fontsize=16, transform=ax.transAxes, 
                         va='center', ha='right', color='#2C3E50',
                         bbox=dict(boxstyle="round,pad=0.4", facecolor="#ECF0F1", 
                                  edgecolor='#BDC3C7', linewidth=1))
@@ -266,42 +322,38 @@ def generate_message_distribution(user_queries, assistant_responses, chatbot_id,
                 performance_level = 'Excellent' if performance_score >= 80 else 'Good' if performance_score >= 60 else 'Fair'
                 performance_color = '#27AE60' if performance_score >= 80 else '#F39C12' if performance_score >= 60 else '#E74C3C'
                 
-                ax4.text(0.5, 0.08, f'Performance: {performance_level} ({performance_score:.0f}/100)', 
-                        transform=ax4.transAxes, ha='center', va='center', fontsize=14, fontweight='bold',
+                ax.text(0.5, 0.15, f'Performance: {performance_level} ({performance_score:.0f}/100)', 
+                        transform=ax.transAxes, ha='center', va='center', fontsize=18, fontweight='bold',
                         bbox=dict(boxstyle="round,pad=0.5", facecolor=performance_color, alpha=0.2, 
                                  edgecolor=performance_color, linewidth=2))
         
-        plt.tight_layout(pad=3.0, h_pad=2.5, w_pad=2.5)
-        plt.subplots_adjust(top=0.92, bottom=0.08, left=0.06, right=0.94, hspace=0.3, wspace=0.25)
-        save_plot_to_supabase(plt, "Message distribution plot", chatbot_id, period)
+        ax.set_title('Key Performance Metrics', fontsize=24, fontweight='bold', y=0.95)
+        plt.tight_layout()
+        save_plot_to_supabase(plt, "Key performance metrics plot", chatbot_id, period)
         
     except Exception as e:
-        print(f"Error generating message distribution: {e}")
+        print(f"Error generating key performance metrics: {e}")
     finally:
         plt.close()
 
 
 def generate_sentiment_analysis(user_queries, chatbot_id, period):
-    """Enhanced sentiment analysis with detailed insights"""
+    """Sentiment distribution pie chart"""
     try:
         plt.style.use('default')
-        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(24, 12), dpi=150)
+        fig, ax = plt.subplots(1, 1, figsize=(12, 10), dpi=150)
         fig.patch.set_facecolor('white')
         
         if not user_queries:
-            for ax in [ax1, ax2]:
-                ax.text(0.5, 0.5, 'No queries available for sentiment analysis',
-                       ha='center', va='center', fontsize=16, color='#7F8C8D')
-                ax.set_xticks([])
-                ax.set_yticks([])
-            fig.suptitle('Sentiment Analysis Dashboard', fontsize=24, fontweight='bold', color='#2C3E50')
+            ax.text(0.5, 0.5, 'No queries available for sentiment analysis',
+                   ha='center', va='center', fontsize=16, color='#7F8C8D')
+            ax.set_xticks([])
+            ax.set_yticks([])
         else:
             sentiments = {"Positive": 0, "Neutral": 0, "Negative": 0}
-            sentiment_scores = []
             
             for query in user_queries:
                 analysis = TextBlob(query)
-                sentiment_scores.append(analysis.sentiment.polarity)
                 if analysis.sentiment.polarity > 0.1:
                     sentiments["Positive"] += 1
                 elif analysis.sentiment.polarity < -0.1:
@@ -309,13 +361,12 @@ def generate_sentiment_analysis(user_queries, chatbot_id, period):
                 else:
                     sentiments["Neutral"] += 1
             
-            # 1. Sentiment Distribution (Enhanced Donut)
             ordered_labels = ["Positive", "Neutral", "Negative"]
             ordered_values = [sentiments[label] for label in ordered_labels]
             colors = ["#27AE60", "#F39C12", "#E74C3C"]
             
             if sum(ordered_values) > 0:
-                wedges, texts, autotexts = ax1.pie(
+                wedges, texts, autotexts = ax.pie(
                     ordered_values, labels=ordered_labels, colors=colors,
                     autopct=lambda pct: f'{pct:.1f}%\n({int(pct/100*sum(ordered_values))})',
                     startangle=90, pctdistance=0.75, labeldistance=1.15,
@@ -331,64 +382,15 @@ def generate_sentiment_analysis(user_queries, chatbot_id, period):
                 
                 # Center content
                 total_queries = sum(ordered_values)
-                ax1.text(0, 0.15, 'SENTIMENT', ha='center', va='center', 
+                ax.text(0, 0.15, 'SENTIMENT', ha='center', va='center', 
                         fontsize=16, fontweight='bold', color='#2C3E50')
-                ax1.text(0, 0, f'{total_queries:,}', ha='center', va='center', 
+                ax.text(0, 0, f'{total_queries:,}', ha='center', va='center', 
                         fontsize=24, fontweight='bold', color='#2C3E50')
-                ax1.text(0, -0.15, 'QUERIES', ha='center', va='center', 
+                ax.text(0, -0.15, 'QUERIES', ha='center', va='center', 
                         fontsize=12, fontweight='bold', color='#7F8C8D')
-                
-                ax1.set_title('Sentiment Distribution', fontsize=18, fontweight='bold', pad=20)
-                
-                # 2. Sentiment Score Distribution
-                ax2.hist(sentiment_scores, bins=30, color='#3498DB', alpha=0.7, edgecolor='white', density=True)
-                ax2.axvline(0, color='#34495E', linestyle='-', linewidth=2, alpha=0.7, label='Neutral Line')
-                ax2.axvline(np.mean(sentiment_scores), color='#E74C3C', linestyle='--', linewidth=2, 
-                           label=f'Average: {np.mean(sentiment_scores):.3f}')
-                
-                ax2.set_xlabel('Sentiment Score', fontsize=14, fontweight='bold')
-                ax2.set_ylabel('Density', fontsize=14, fontweight='bold')
-                ax2.set_title('Sentiment Score Distribution', fontsize=18, fontweight='bold')
-                ax2.legend(fontsize=12, frameon=True, fancybox=True, shadow=True)
-                ax2.grid(True, alpha=0.3)
-                ax2.spines['top'].set_visible(False)
-                ax2.spines['right'].set_visible(False)
-                
-                # Add annotations for sentiment ranges
-                ax2.text(-0.8, ax2.get_ylim()[1]*0.8, 'Very\nNegative', ha='center', va='center', 
-                        fontsize=10, bbox=dict(boxstyle="round,pad=0.3", facecolor="#E74C3C", alpha=0.3))
-                ax2.text(0, ax2.get_ylim()[1]*0.9, 'Neutral', ha='center', va='center', 
-                        fontsize=10, bbox=dict(boxstyle="round,pad=0.3", facecolor="#F39C12", alpha=0.3))
-                ax2.text(0.8, ax2.get_ylim()[1]*0.8, 'Very\nPositive', ha='center', va='center', 
-                        fontsize=10, bbox=dict(boxstyle="round,pad=0.3", facecolor="#27AE60", alpha=0.3))
-                
-                # Add insights box
-                dominant_sentiment = ordered_labels[ordered_values.index(max(ordered_values))]
-                dominant_percentage = (max(ordered_values) / total_queries) * 100
-                avg_sentiment = np.mean(sentiment_scores)
-                
-                # Determine overall mood
-                if avg_sentiment > 0.2:
-                    mood = "Very Positive"
-                elif avg_sentiment > 0.05:
-                    mood = "Positive"
-                elif avg_sentiment > -0.05:
-                    mood = "Neutral"
-                elif avg_sentiment > -0.2:
-                    mood = "Negative"
-                else:
-                    mood = "Very Negative"
-                
-                fig.text(0.5, 0.02, 
-                        f"Key Insights: {dominant_sentiment} sentiment dominates ({dominant_percentage:.1f}%) | "
-                        f"Overall mood: {mood} (Score: {avg_sentiment:.3f}) | "
-                        f"Sentiment spread: {np.std(sentiment_scores):.3f}",
-                        ha='center', va='bottom', fontsize=12, style='italic',
-                        bbox=dict(boxstyle="round,pad=0.5", facecolor="#ECF0F1", alpha=0.9))
         
-        fig.suptitle('User Sentiment Analysis Dashboard', fontsize=24, fontweight='bold', y=0.95, color='#2C3E50')
-        plt.tight_layout(pad=3.0, h_pad=2.0, w_pad=3.0)
-        plt.subplots_adjust(top=0.90, bottom=0.12, left=0.08, right=0.92, wspace=0.3)
+        ax.set_title('Sentiment Analysis', fontsize=20, fontweight='bold', pad=20)
+        plt.tight_layout()
         save_plot_to_supabase(plt, "Sentiment analysis plot", chatbot_id, period)
         
     except Exception as e:
@@ -397,11 +399,60 @@ def generate_sentiment_analysis(user_queries, chatbot_id, period):
         plt.close()
 
 
-def generate_chat_volume_plot(conversations, chatbot_id, period):
-    """Enhanced chat volume visualization with trend analysis"""
+def generate_sentiment_score_distribution(user_queries, chatbot_id, period):
+    """Sentiment score distribution histogram"""
     try:
         plt.style.use('default')
-        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(24, 12), dpi=150)
+        fig, ax = plt.subplots(1, 1, figsize=(12, 8), dpi=150)
+        fig.patch.set_facecolor('white')
+        
+        if not user_queries:
+            ax.text(0.5, 0.5, 'No queries available for sentiment analysis',
+                   ha='center', va='center', fontsize=16, color='#7F8C8D')
+            ax.set_xticks([])
+            ax.set_yticks([])
+        else:
+            sentiment_scores = []
+            
+            for query in user_queries:
+                analysis = TextBlob(query)
+                sentiment_scores.append(analysis.sentiment.polarity)
+            
+            ax.hist(sentiment_scores, bins=30, color='#3498DB', alpha=0.7, edgecolor='white', density=True)
+            ax.axvline(0, color='#34495E', linestyle='-', linewidth=2, alpha=0.7, label='Neutral Line')
+            ax.axvline(np.mean(sentiment_scores), color='#E74C3C', linestyle='--', linewidth=2, 
+                       label=f'Average: {np.mean(sentiment_scores):.3f}')
+            
+            ax.set_xlabel('Sentiment Score', fontsize=14, fontweight='bold')
+            ax.set_ylabel('Density', fontsize=14, fontweight='bold')
+            ax.legend(fontsize=12, frameon=True, fancybox=True, shadow=True)
+            ax.grid(True, alpha=0.3)
+            ax.spines['top'].set_visible(False)
+            ax.spines['right'].set_visible(False)
+            
+            # Add annotations for sentiment ranges
+            ax.text(-0.8, ax.get_ylim()[1]*0.8, 'Very\nNegative', ha='center', va='center', 
+                    fontsize=10, bbox=dict(boxstyle="round,pad=0.3", facecolor="#E74C3C", alpha=0.3))
+            ax.text(0, ax.get_ylim()[1]*0.9, 'Neutral', ha='center', va='center', 
+                    fontsize=10, bbox=dict(boxstyle="round,pad=0.3", facecolor="#F39C12", alpha=0.3))
+            ax.text(0.8, ax.get_ylim()[1]*0.8, 'Very\nPositive', ha='center', va='center', 
+                    fontsize=10, bbox=dict(boxstyle="round,pad=0.3", facecolor="#27AE60", alpha=0.3))
+        
+        ax.set_title('Sentiment Score Distribution', fontsize=20, fontweight='bold', pad=20)
+        plt.tight_layout()
+        save_plot_to_supabase(plt, "Sentiment score distribution plot", chatbot_id, period)
+        
+    except Exception as e:
+        print(f"Error generating sentiment score distribution: {e}")
+    finally:
+        plt.close()
+
+
+def generate_chat_volume_plot(conversations, chatbot_id, period):
+    """Chat volume trend analysis"""
+    try:
+        plt.style.use('default')
+        fig, ax = plt.subplots(1, 1, figsize=(14, 8), dpi=150)
         fig.patch.set_facecolor('white')
         
         if period == 0:
@@ -418,58 +469,33 @@ def generate_chat_volume_plot(conversations, chatbot_id, period):
                     continue
 
             if not monthly_counts:
-                for ax in [ax1, ax2]:
-                    ax.text(0.5, 0.5, 'No conversation data available', 
-                           ha='center', va='center', fontsize=16, color='#7F8C8D')
-                    ax.set_xticks([])
-                    ax.set_yticks([])
+                ax.text(0.5, 0.5, 'No conversation data available', 
+                       ha='center', va='center', fontsize=16, color='#7F8C8D')
+                ax.set_xticks([])
+                ax.set_yticks([])
             else:
                 dates = sorted(monthly_counts.keys())
                 counts = [monthly_counts[date] for date in dates]
                 formatted_dates = [datetime.strptime(date, "%Y-%m").strftime("%b %Y") for date in dates]
 
                 # Main trend line
-                ax1.plot(formatted_dates, counts, marker='o', linewidth=3, markersize=8, 
+                ax.plot(formatted_dates, counts, marker='o', linewidth=3, markersize=8, 
                         color='#3498DB', markerfacecolor='#E74C3C', markeredgecolor='white', markeredgewidth=2)
-                ax1.fill_between(formatted_dates, counts, alpha=0.3, color='#3498DB')
+                ax.fill_between(formatted_dates, counts, alpha=0.3, color='#3498DB')
                 
-                ax1.set_ylabel('Number of Conversations', fontsize=14, fontweight='bold')
-                ax1.set_title('Chat Volume Trend (Monthly)', fontsize=18, fontweight='bold')
-                ax1.tick_params(axis='x', rotation=45, labelsize=11)
-                ax1.grid(True, alpha=0.3, linestyle='--')
-                ax1.spines['top'].set_visible(False)
-                ax1.spines['right'].set_visible(False)
+                ax.set_ylabel('Number of Conversations', fontsize=14, fontweight='bold')
+                ax.tick_params(axis='x', rotation=45, labelsize=11)
+                ax.grid(True, alpha=0.3, linestyle='--')
+                ax.spines['top'].set_visible(False)
+                ax.spines['right'].set_visible(False)
                 
-                # Add peak and trough annotations
+                # Add peak annotation
                 max_idx = counts.index(max(counts))
-                min_idx = counts.index(min(counts))
-                
-                ax1.annotate(f'Peak: {max(counts):,}', xy=(max_idx, max(counts)), 
+                ax.annotate(f'Peak: {max(counts):,}', xy=(max_idx, max(counts)), 
                            xytext=(max_idx, max(counts) + max(counts)*0.1),
                            arrowprops=dict(arrowstyle='->', color='#E74C3C', lw=2),
                            fontsize=12, ha='center', fontweight='bold',
                            bbox=dict(boxstyle="round,pad=0.3", facecolor="#E74C3C", alpha=0.3))
-                
-                # Bar chart for monthly comparison
-                bars = ax2.bar(formatted_dates, counts, color='#3498DB', alpha=0.7, edgecolor='white', linewidth=2)
-                ax2.set_ylabel('Conversations', fontsize=14, fontweight='bold')
-                ax2.set_title('Monthly Volume Comparison', fontsize=16, fontweight='bold')
-                ax2.tick_params(axis='x', rotation=45, labelsize=11)
-                ax2.grid(True, alpha=0.3, axis='y')
-                ax2.spines['top'].set_visible(False)
-                ax2.spines['right'].set_visible(False)
-                
-                # Highlight top months
-                avg_conversations = np.mean(counts)
-                for bar, count in zip(bars, counts):
-                    if count > avg_conversations:
-                        bar.set_color('#27AE60')
-                        bar.set_alpha(0.8)
-                
-                # Add average line
-                ax2.axhline(avg_conversations, color='#E74C3C', linestyle='--', linewidth=2, 
-                           label=f'Average: {avg_conversations:.1f}')
-                ax2.legend(fontsize=12)
                 
         else:
             # Daily data for specific periods
@@ -495,60 +521,33 @@ def generate_chat_volume_plot(conversations, chatbot_id, period):
             formatted_dates = [datetime.strptime(date, "%Y-%m-%d").strftime("%m/%d") for date in dates]
 
             if sum(counts) == 0:
-                for ax in [ax1, ax2]:
-                    ax.text(0.5, 0.5, f'No conversations in the last {period} days', 
-                           ha='center', va='center', fontsize=16, color='#7F8C8D')
-                    ax.set_xticks([])
-                    ax.set_yticks([])
+                ax.text(0.5, 0.5, f'No conversations in the last {period} days', 
+                       ha='center', va='center', fontsize=16, color='#7F8C8D')
+                ax.set_xticks([])
+                ax.set_yticks([])
             else:
                 # Line plot with trend
-                ax1.plot(formatted_dates, counts, marker='o', linewidth=3, markersize=6, 
+                ax.plot(formatted_dates, counts, marker='o', linewidth=3, markersize=6, 
                         color='#3498DB', markerfacecolor='#E74C3C', markeredgecolor='white', markeredgewidth=2)
-                ax1.fill_between(formatted_dates, counts, alpha=0.3, color='#3498DB')
+                ax.fill_between(formatted_dates, counts, alpha=0.3, color='#3498DB')
                 
-                ax1.set_ylabel('Number of Conversations', fontsize=14, fontweight='bold')
-                ax1.set_title(f'Daily Chat Volume (Last {period} Days)', fontsize=18, fontweight='bold')
-                ax1.tick_params(axis='x', rotation=45, labelsize=11)
-                ax1.grid(True, alpha=0.3)
-                ax1.spines['top'].set_visible(False)
-                ax1.spines['right'].set_visible(False)
+                ax.set_ylabel('Number of Conversations', fontsize=14, fontweight='bold')
+                ax.tick_params(axis='x', rotation=45, labelsize=11)
+                ax.grid(True, alpha=0.3)
+                ax.spines['top'].set_visible(False)
+                ax.spines['right'].set_visible(False)
                 
                 # Add trend line
                 if len(counts) > 2:
                     z = np.polyfit(range(len(counts)), counts, 1)
                     p = np.poly1d(z)
-                    ax1.plot(formatted_dates, p(range(len(counts))), "--", color='#E74C3C', 
+                    ax.plot(formatted_dates, p(range(len(counts))), "--", color='#E74C3C', 
                             linewidth=2, alpha=0.8, label=f'Trend: {"↗" if z[0] > 0 else "↘"}')
-                    ax1.legend(fontsize=12)
-                
-                # Bar chart
-                bars = ax2.bar(formatted_dates, counts, color='#3498DB', alpha=0.7, edgecolor='white', linewidth=2)
-                ax2.set_xlabel('Date', fontsize=14, fontweight='bold')
-                ax2.set_ylabel('Conversations', fontsize=14, fontweight='bold')
-                ax2.set_title('Daily Volume Distribution', fontsize=16, fontweight='bold')
-                ax2.tick_params(axis='x', rotation=45, labelsize=11)
-                ax2.grid(True, alpha=0.3, axis='y')
-                ax2.spines['top'].set_visible(False)
-                ax2.spines['right'].set_visible(False)
-                
-                # Add value labels on bars
-                for bar, count in zip(bars, counts):
-                    if count > 0:
-                        ax2.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.1,
-                                str(count), ha='center', va='bottom', fontweight='bold')
-                
-                # Calculate and display metrics
-                total_conversations = sum(counts)
-                avg_daily = total_conversations / period
-                max_day = max(counts) if counts else 0
-                
-                metrics_text = f"Total: {total_conversations} | Daily Avg: {avg_daily:.1f} | Peak Day: {max_day}"
-                fig.text(0.5, 0.02, metrics_text, ha='center', va='bottom', fontsize=12, 
-                        bbox=dict(boxstyle="round,pad=0.5", facecolor="#ECF0F1", alpha=0.9))
+                    ax.legend(fontsize=12)
         
-        fig.suptitle('Chat Volume Analysis Dashboard', fontsize=24, fontweight='bold', y=0.95, color='#2C3E50')
-        plt.tight_layout(pad=3.0, h_pad=2.0, w_pad=3.0)
-        plt.subplots_adjust(top=0.90, bottom=0.12, left=0.08, right=0.92, wspace=0.3)
+        title = f'Chat Volume Trend (Last {period} Days)' if period > 0 else 'Chat Volume Trend (All Time)'
+        ax.set_title(title, fontsize=20, fontweight='bold', pad=20)
+        plt.tight_layout()
         save_plot_to_supabase(plt, "Chat volume plot", chatbot_id, period)
         
     except Exception as e:
@@ -558,18 +557,16 @@ def generate_chat_volume_plot(conversations, chatbot_id, period):
 
 
 def generate_peak_hours_activity_plot(conversations, chatbot_id, period):
-    """Enhanced peak hours analysis with detailed time patterns"""
+    """Hourly activity pattern analysis"""
     try:
         plt.style.use('default')
-        fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(24, 18), dpi=150)
+        fig, ax = plt.subplots(1, 1, figsize=(14, 8), dpi=150)
         fig.patch.set_facecolor('white')
         
-        # Initialize 24-hour and day-of-week activity counters
+        # Initialize 24-hour activity counter
         hourly_activity = {hour: 0 for hour in range(24)}
-        daily_activity = {day: 0 for day in range(7)}  # 0=Monday, 6=Sunday
-        day_names = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
         
-        # Count conversations by time patterns
+        # Count conversations by hour
         for convo in conversations:
             if "messages" not in convo:
                 continue
@@ -578,8 +575,68 @@ def generate_peak_hours_activity_plot(conversations, chatbot_id, period):
                 if "created_at" in convo:
                     timestamp = datetime.fromisoformat(convo["created_at"].replace('Z', '+00:00'))
                     hour = timestamp.hour
-                    day_of_week = timestamp.weekday()
                     hourly_activity[hour] += 1
+            except Exception:
+                continue
+
+        total_activity = sum(hourly_activity.values())
+        
+        if total_activity == 0:
+            ax.text(0.5, 0.5, 'No activity data available', 
+                   ha='center', va='center', fontsize=16, color='#7F8C8D')
+            ax.set_xticks([])
+            ax.set_yticks([])
+        else:
+            hours = list(range(24))
+            activity_counts = [hourly_activity[hour] for hour in hours]
+            
+            bars = ax.bar(hours, activity_counts, color='#3498DB', alpha=0.7, edgecolor='white', linewidth=1)
+            
+            # Highlight peak hour
+            if max(activity_counts) > 0:
+                peak_hour = hours[activity_counts.index(max(activity_counts))]
+                bars[peak_hour].set_color('#E74C3C')
+                bars[peak_hour].set_alpha(0.9)
+            
+            ax.set_xlabel('Hour of Day', fontsize=12, fontweight='bold')
+            ax.set_ylabel('Number of Conversations', fontsize=12, fontweight='bold')
+            ax.set_xticks(range(0, 24, 2))
+            ax.set_xticklabels([f'{h:02d}:00' for h in range(0, 24, 2)], rotation=45)
+            ax.grid(True, alpha=0.3, axis='y')
+            ax.spines['top'].set_visible(False)
+            ax.spines['right'].set_visible(False)
+        
+        period_text = f"({period} days)" if period > 0 else "(All Time)"
+        ax.set_title(f'Hourly Activity Pattern {period_text}', fontsize=20, fontweight='bold', pad=20)
+        plt.tight_layout()
+        save_plot_to_supabase(plt, "Peak hours activity plot", chatbot_id, period)
+        
+    except Exception as e:
+        print(f"Error generating peak hours activity plot: {e}")
+    finally:
+        plt.close()
+
+
+def generate_day_of_week_activity_plot(conversations, chatbot_id, period):
+    """Day of week activity analysis"""
+    try:
+        plt.style.use('default')
+        fig, ax = plt.subplots(1, 1, figsize=(12, 8), dpi=150)
+        fig.patch.set_facecolor('white')
+        
+        # Initialize day-of-week activity counter
+        daily_activity = {day: 0 for day in range(7)}  # 0=Monday, 6=Sunday
+        day_names = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+        
+        # Count conversations by day of week
+        for convo in conversations:
+            if "messages" not in convo:
+                continue
+
+            try:
+                if "created_at" in convo:
+                    timestamp = datetime.fromisoformat(convo["created_at"].replace('Z', '+00:00'))
+                    day_of_week = timestamp.weekday()
                     daily_activity[day_of_week] += 1
                 elif "date_of_convo" in convo:
                     # Fallback to date only
@@ -589,39 +646,16 @@ def generate_peak_hours_activity_plot(conversations, chatbot_id, period):
             except Exception:
                 continue
 
-        total_activity = sum(hourly_activity.values())
+        total_activity = sum(daily_activity.values())
         
         if total_activity == 0:
-            for ax in [ax1, ax2, ax3, ax4]:
-                ax.text(0.5, 0.5, 'No activity data available', 
-                       ha='center', va='center', fontsize=16, color='#7F8C8D')
-                ax.set_xticks([])
-                ax.set_yticks([])
+            ax.text(0.5, 0.5, 'No activity data available', 
+                   ha='center', va='center', fontsize=16, color='#7F8C8D')
+            ax.set_xticks([])
+            ax.set_yticks([])
         else:
-            # 1. Hourly Activity Pattern
-            hours = list(range(24))
-            activity_counts = [hourly_activity[hour] for hour in hours]
-            
-            bars = ax1.bar(hours, activity_counts, color='#3498DB', alpha=0.7, edgecolor='white', linewidth=1)
-            
-            # Highlight peak hour
-            if max(activity_counts) > 0:
-                peak_hour = hours[activity_counts.index(max(activity_counts))]
-                bars[peak_hour].set_color('#E74C3C')
-                bars[peak_hour].set_alpha(0.9)
-            
-            ax1.set_xlabel('Hour of Day', fontsize=12, fontweight='bold')
-            ax1.set_ylabel('Number of Conversations', fontsize=12, fontweight='bold')
-            ax1.set_title('Hourly Activity Pattern', fontsize=16, fontweight='bold')
-            ax1.set_xticks(range(0, 24, 2))
-            ax1.set_xticklabels([f'{h:02d}:00' for h in range(0, 24, 2)], rotation=45)
-            ax1.grid(True, alpha=0.3, axis='y')
-            ax1.spines['top'].set_visible(False)
-            ax1.spines['right'].set_visible(False)
-            
-            # 2. Day of Week Activity
             day_counts = [daily_activity[day] for day in range(7)]
-            day_bars = ax2.bar(day_names, day_counts, color='#27AE60', alpha=0.7, edgecolor='white', linewidth=1)
+            day_bars = ax.bar(day_names, day_counts, color='#27AE60', alpha=0.7, edgecolor='white', linewidth=1)
             
             # Highlight busiest day
             if max(day_counts) > 0:
@@ -629,20 +663,61 @@ def generate_peak_hours_activity_plot(conversations, chatbot_id, period):
                 day_bars[busiest_day_idx].set_color('#E74C3C')
                 day_bars[busiest_day_idx].set_alpha(0.9)
             
-            ax2.set_ylabel('Number of Conversations', fontsize=12, fontweight='bold')
-            ax2.set_title('Day of Week Activity', fontsize=16, fontweight='bold')
-            ax2.tick_params(axis='x', rotation=45)
-            ax2.grid(True, alpha=0.3, axis='y')
-            ax2.spines['top'].set_visible(False)
-            ax2.spines['right'].set_visible(False)
+            ax.set_ylabel('Number of Conversations', fontsize=12, fontweight='bold')
+            ax.tick_params(axis='x', rotation=45)
+            ax.grid(True, alpha=0.3, axis='y')
+            ax.spines['top'].set_visible(False)
+            ax.spines['right'].set_visible(False)
             
             # Add value labels
             for bar, count in zip(day_bars, day_counts):
                 if count > 0:
-                    ax2.text(bar.get_x() + bar.get_width()/2, bar.get_height() + max(day_counts)*0.02,
+                    ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + max(day_counts)*0.02,
                             str(count), ha='center', va='bottom', fontweight='bold')
-            
-            # 3. Business Hours Analysis
+        
+        period_text = f"({period} days)" if period > 0 else "(All Time)"
+        ax.set_title(f'Day of Week Activity {period_text}', fontsize=20, fontweight='bold', pad=20)
+        plt.tight_layout()
+        save_plot_to_supabase(plt, "Day of week activity plot", chatbot_id, period)
+        
+    except Exception as e:
+        print(f"Error generating day of week activity plot: {e}")
+    finally:
+        plt.close()
+
+
+def generate_business_hours_analysis_plot(conversations, chatbot_id, period):
+    """Business vs after hours activity analysis"""
+    try:
+        plt.style.use('default')
+        fig, ax = plt.subplots(1, 1, figsize=(10, 10), dpi=150)
+        fig.patch.set_facecolor('white')
+        
+        # Initialize hourly activity counter
+        hourly_activity = {hour: 0 for hour in range(24)}
+        
+        # Count conversations by hour
+        for convo in conversations:
+            if "messages" not in convo:
+                continue
+
+            try:
+                if "created_at" in convo:
+                    timestamp = datetime.fromisoformat(convo["created_at"].replace('Z', '+00:00'))
+                    hour = timestamp.hour
+                    hourly_activity[hour] += 1
+            except Exception:
+                continue
+
+        total_activity = sum(hourly_activity.values())
+        
+        if total_activity == 0:
+            ax.text(0.5, 0.5, 'No activity data available', 
+                   ha='center', va='center', fontsize=16, color='#7F8C8D')
+            ax.set_xticks([])
+            ax.set_yticks([])
+        else:
+            # Business Hours Analysis
             business_hours = list(range(9, 17))  # 9 AM to 5 PM
             after_hours = list(range(0, 9)) + list(range(17, 24))
             
@@ -654,104 +729,41 @@ def generate_peak_hours_activity_plot(conversations, chatbot_id, period):
             time_colors = ['#3498DB', '#E67E22']
             
             if sum(time_counts) > 0:
-                wedges, texts, autotexts = ax3.pie(time_counts, labels=time_periods, colors=time_colors,
+                wedges, texts, autotexts = ax.pie(time_counts, labels=time_periods, colors=time_colors,
                                                   autopct='%1.1f%%', startangle=90,
                                                   textprops={'fontsize': 12, 'fontweight': 'bold'},
                                                   wedgeprops=dict(width=0.6, edgecolor='white', linewidth=2))
                 
                 # Center text
-                ax3.text(0, 0, f'{sum(time_counts):,}\nTotal', ha='center', va='center', 
+                ax.text(0, 0, f'{sum(time_counts):,}\nTotal', ha='center', va='center', 
                         fontsize=14, fontweight='bold', color='#2C3E50')
-                
-            ax3.set_title('Business vs After Hours', fontsize=16, fontweight='bold')
-            
-            # 4. Peak Activity Insights
-            ax4.axis('off')
-            ax4.set_title('Activity Insights', fontsize=16, fontweight='bold', y=0.95)
-            
-            # Calculate insights
-            peak_hour = hours[activity_counts.index(max(activity_counts))] if max(activity_counts) > 0 else 0
-            busiest_day = day_names[day_counts.index(max(day_counts))] if max(day_counts) > 0 else "N/A"
-            business_percentage = (business_activity / total_activity * 100) if total_activity > 0 else 0
-            
-            # Time period classification
-            if 6 <= peak_hour <= 11:
-                peak_period = "Morning"
-            elif 12 <= peak_hour <= 17:
-                peak_period = "Afternoon"
-            elif 18 <= peak_hour <= 22:
-                peak_period = "Evening"
-            else:
-                peak_period = "Night/Early Morning"
-            
-            insights = [
-                ('Peak Hour', f'{peak_hour:02d}:00 ({peak_period})'),
-                ('Peak Activity', f'{max(activity_counts)} conversations'),
-                ('Busiest Day', busiest_day),
-                ('Business Hours Activity', f'{business_percentage:.1f}%'),
-                ('Most Active Period', f'{peak_period} hours'),
-                ('Weekend Activity', f'{(day_counts[5] + day_counts[6])/(sum(day_counts))*100:.1f}%' if sum(day_counts) > 0 else 'N/A')
-            ]
-            
-            y_start = 0.8
-            for i, (metric, value) in enumerate(insights):
-                y_pos = y_start - (i * 0.12)
-                ax4.text(0.05, y_pos, f'• {metric}:', fontsize=13, fontweight='bold', 
-                        transform=ax4.transAxes, va='center')
-                ax4.text(0.95, y_pos, value, fontsize=13, transform=ax4.transAxes, 
-                        va='center', ha='right', color='#2C3E50',
-                        bbox=dict(boxstyle="round,pad=0.4", facecolor="#ECF0F1", alpha=0.8))
-            
-            # Recommendation box
-            if business_percentage < 50:
-                recommendation = "Consider extending support hours for after-hours users"
-                rec_color = "#E74C3C"
-            elif peak_hour < 9 or peak_hour > 17:
-                recommendation = "Peak activity outside business hours - optimize staffing"
-                rec_color = "#F39C12"
-            else:
-                recommendation = "Good alignment with business hours"
-                rec_color = "#27AE60"
-            
-            ax4.text(0.5, 0.05, f'💡 {recommendation}', transform=ax4.transAxes, 
-                    ha='center', va='center', fontsize=12, style='italic',
-                    bbox=dict(boxstyle="round,pad=0.5", facecolor=rec_color, alpha=0.2, 
-                             edgecolor=rec_color, linewidth=2))
         
         period_text = f"({period} days)" if period > 0 else "(All Time)"
-        fig.suptitle(f'Peak Hours & Activity Patterns {period_text}', 
-                    fontsize=24, fontweight='bold', y=0.95, color='#2C3E50')
-        
-        plt.tight_layout(pad=3.0, h_pad=2.5, w_pad=2.5)
-        plt.subplots_adjust(top=0.92, bottom=0.08, left=0.06, right=0.94, hspace=0.3, wspace=0.25)
-        save_plot_to_supabase(plt, "Peak hours activity plot", chatbot_id, period)
+        ax.set_title(f'Business vs After Hours {period_text}', fontsize=20, fontweight='bold', pad=20)
+        plt.tight_layout()
+        save_plot_to_supabase(plt, "Business hours analysis plot", chatbot_id, period)
         
     except Exception as e:
-        print(f"Error generating peak hours activity plot: {e}")
+        print(f"Error generating business hours analysis plot: {e}")
     finally:
         plt.close()
 
 
 def generate_conversation_quality_analysis(conversations, chatbot_id, period):
-    """Comprehensive conversation quality analysis with detailed metrics"""
+    """Quality score distribution analysis"""
     try:
         plt.style.use('default')
-        fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(24, 18), dpi=150)
+        fig, ax = plt.subplots(1, 1, figsize=(12, 8), dpi=150)
         fig.patch.set_facecolor('white')
         
         if not conversations:
-            for ax in [ax1, ax2, ax3, ax4]:
-                ax.text(0.5, 0.5, 'No conversation data available', 
-                       ha='center', va='center', fontsize=16, color='#7F8C8D')
-                ax.set_xticks([])
-                ax.set_yticks([])
+            ax.text(0.5, 0.5, 'No conversation data available', 
+                   ha='center', va='center', fontsize=16, color='#7F8C8D')
+            ax.set_xticks([])
+            ax.set_yticks([])
         else:
             # Analyze conversation quality metrics
             quality_scores = []
-            message_depths = []
-            resolution_status = []
-            response_ratios = []
-            unanswered_count = 0
             
             for convo in conversations:
                 if "messages" not in convo:
@@ -772,9 +784,6 @@ def generate_conversation_quality_analysis(conversations, chatbot_id, period):
                 
                 # Check for unanswered queries
                 has_unanswered = any("Oops" in msg.get("content", "") for msg in assistant_messages)
-                resolution_status.append("Resolved" if not has_unanswered else "Unresolved")
-                if has_unanswered:
-                    unanswered_count += 1
                 
                 # Quality score (0-100)
                 quality_score = min(100, (
@@ -785,17 +794,14 @@ def generate_conversation_quality_analysis(conversations, chatbot_id, period):
                 ))
                 
                 quality_scores.append(quality_score)
-                message_depths.append(total_messages)
-                response_ratios.append(response_ratio)
             
             if not quality_scores:
-                for ax in [ax1, ax2, ax3, ax4]:
-                    ax.text(0.5, 0.5, 'No valid conversation data', 
-                           ha='center', va='center', fontsize=16, color='#7F8C8D')
-                    ax.set_xticks([])
-                    ax.set_yticks([])
+                ax.text(0.5, 0.5, 'No valid conversation data', 
+                       ha='center', va='center', fontsize=16, color='#7F8C8D')
+                ax.set_xticks([])
+                ax.set_yticks([])
             else:
-                # 1. Quality Score Distribution
+                # Quality Score Distribution
                 score_ranges = ['Excellent\n(80-100)', 'Good\n(60-79)', 'Fair\n(40-59)', 'Poor\n(0-39)']
                 score_counts = [
                     sum(1 for score in quality_scores if score >= 80),
@@ -805,141 +811,25 @@ def generate_conversation_quality_analysis(conversations, chatbot_id, period):
                 ]
                 score_colors = ['#27AE60', '#3498DB', '#F39C12', '#E74C3C']
                 
-                bars1 = ax1.bar(score_ranges, score_counts, color=score_colors, alpha=0.8, 
+                bars = ax.bar(score_ranges, score_counts, color=score_colors, alpha=0.8, 
                                edgecolor='white', linewidth=2)
-                ax1.set_ylabel('Number of Conversations', fontsize=12, fontweight='bold')
-                ax1.set_title('Quality Score Distribution', fontsize=16, fontweight='bold')
-                ax1.grid(True, alpha=0.3, axis='y')
-                ax1.spines['top'].set_visible(False)
-                ax1.spines['right'].set_visible(False)
+                ax.set_ylabel('Number of Conversations', fontsize=12, fontweight='bold')
+                ax.grid(True, alpha=0.3, axis='y')
+                ax.spines['top'].set_visible(False)
+                ax.spines['right'].set_visible(False)
                 
                 # Add percentage labels
                 total_convos = len(quality_scores)
-                for bar, count in zip(bars1, score_counts):
+                for bar, count in zip(bars, score_counts):
                     if count > 0:
                         percentage = (count / total_convos) * 100
-                        ax1.text(bar.get_x() + bar.get_width()/2, bar.get_height() + max(score_counts)*0.02,
+                        ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + max(score_counts)*0.02,
                                 f'{count}\n({percentage:.1f}%)', ha='center', va='bottom', 
                                 fontweight='bold', fontsize=10)
-                
-                # 2. Message Depth vs Quality
-                ax2.scatter(message_depths, quality_scores, alpha=0.6, s=60, 
-                           c=quality_scores, cmap='RdYlGn', edgecolors='white', linewidth=1)
-                
-                # Add trend line
-                if len(message_depths) > 2:
-                    z = np.polyfit(message_depths, quality_scores, 1)
-                    p = np.poly1d(z)
-                    x_trend = np.linspace(min(message_depths), max(message_depths), 100)
-                    ax2.plot(x_trend, p(x_trend), "--", color='#E74C3C', linewidth=2, alpha=0.8)
-                
-                ax2.set_xlabel('Total Messages per Conversation', fontsize=12, fontweight='bold')
-                ax2.set_ylabel('Quality Score', fontsize=12, fontweight='bold')
-                ax2.set_title('Message Depth vs Quality Correlation', fontsize=16, fontweight='bold')
-                ax2.grid(True, alpha=0.3)
-                ax2.spines['top'].set_visible(False)
-                ax2.spines['right'].set_visible(False)
-                
-                # Add correlation coefficient
-                correlation = np.corrcoef(message_depths, quality_scores)[0, 1] if len(message_depths) > 1 else 0
-                ax2.text(0.05, 0.95, f'Correlation: {correlation:.3f}', transform=ax2.transAxes,
-                        bbox=dict(boxstyle="round,pad=0.3", facecolor="#ECF0F1", alpha=0.8),
-                        fontsize=11, fontweight='bold')
-                
-                # 3. Resolution Rate Analysis
-                resolved_count = resolution_status.count("Resolved")
-                unresolved_count = resolution_status.count("Unresolved")
-                
-                if resolved_count + unresolved_count > 0:
-                    resolution_data = [resolved_count, unresolved_count]
-                    resolution_labels = ['Resolved', 'Unresolved']
-                    resolution_colors = ['#27AE60', '#E74C3C']
-                    
-                    wedges, texts, autotexts = ax3.pie(resolution_data, labels=resolution_labels, 
-                                                      colors=resolution_colors, autopct='%1.1f%%',
-                                                      startangle=90, textprops={'fontsize': 12, 'fontweight': 'bold'},
-                                                      wedgeprops=dict(width=0.6, edgecolor='white', linewidth=2))
-                    
-                    # Center text
-                    resolution_rate = (resolved_count / (resolved_count + unresolved_count)) * 100
-                    ax3.text(0, 0, f'{resolution_rate:.1f}%\nResolution\nRate', ha='center', va='center', 
-                            fontsize=14, fontweight='bold', color='#2C3E50')
-                
-                ax3.set_title('Problem Resolution Analysis', fontsize=16, fontweight='bold')
-                
-                # 4. Key Metrics Dashboard
-                ax4.axis('off')
-                ax4.set_title('Quality Metrics Summary', fontsize=16, fontweight='bold', y=0.95)
-                
-                # Calculate key metrics
-                avg_quality = np.mean(quality_scores)
-                avg_messages = np.mean(message_depths)
-                avg_response_ratio = np.mean(response_ratios)
-                resolution_percentage = (resolved_count / len(resolution_status)) * 100 if resolution_status else 0
-                
-                # Determine overall grade
-                if avg_quality >= 80:
-                    grade = "A+ (Excellent)"
-                    grade_color = "#27AE60"
-                elif avg_quality >= 70:
-                    grade = "A (Very Good)"
-                    grade_color = "#2ECC71"
-                elif avg_quality >= 60:
-                    grade = "B (Good)"
-                    grade_color = "#3498DB"
-                elif avg_quality >= 50:
-                    grade = "C (Fair)"
-                    grade_color = "#F39C12"
-                else:
-                    grade = "D (Needs Improvement)"
-                    grade_color = "#E74C3C"
-                
-                metrics = [
-                    ('Overall Quality Grade', grade),
-                    ('Average Quality Score', f'{avg_quality:.1f}/100'),
-                    ('Average Messages/Conversation', f'{avg_messages:.1f}'),
-                    ('Response Coverage Ratio', f'{avg_response_ratio:.2f}:1'),
-                    ('Resolution Success Rate', f'{resolution_percentage:.1f}%'),
-                    ('Total Conversations Analyzed', f'{len(quality_scores):,}')
-                ]
-                
-                y_start = 0.8
-                for i, (metric, value) in enumerate(metrics):
-                    y_pos = y_start - (i * 0.12)
-                    ax4.text(0.05, y_pos, f'• {metric}:', fontsize=13, fontweight='bold', 
-                            transform=ax4.transAxes, va='center')
-                    
-                    # Color code the grade
-                    text_color = grade_color if i == 0 else '#2C3E50'
-                    box_color = grade_color if i == 0 else "#ECF0F1"
-                    
-                    ax4.text(0.95, y_pos, value, fontsize=13, transform=ax4.transAxes, 
-                            va='center', ha='right', color=text_color, fontweight='bold' if i == 0 else 'normal',
-                            bbox=dict(boxstyle="round,pad=0.4", facecolor=box_color, alpha=0.3 if i == 0 else 0.8))
-                
-                # Recommendations
-                recommendations = []
-                if avg_quality < 70:
-                    recommendations.append("Focus on improving response quality and depth")
-                if resolution_percentage < 85:
-                    recommendations.append("Reduce unanswered queries to improve resolution rate")
-                if avg_response_ratio < 0.8:
-                    recommendations.append("Ensure all user queries receive responses")
-                if not recommendations:
-                    recommendations.append("Excellent performance - maintain current standards")
-                
-                rec_text = "Recommendations:\n" + "\n".join(f"• {rec}" for rec in recommendations[:3])
-                ax4.text(0.5, 0.05, rec_text, transform=ax4.transAxes, ha='center', va='bottom', 
-                        fontsize=11, style='italic',
-                        bbox=dict(boxstyle="round,pad=0.5", facecolor="#F8F9FA", alpha=0.9, 
-                                 edgecolor='#BDC3C7', linewidth=1))
         
         period_text = f"({period} days)" if period > 0 else "(All Time)"
-        fig.suptitle(f'Conversation Quality Analysis Dashboard {period_text}', 
-                    fontsize=24, fontweight='bold', y=0.95, color='#2C3E50')
-        
-        plt.tight_layout(pad=3.0, h_pad=2.5, w_pad=2.5)
-        plt.subplots_adjust(top=0.92, bottom=0.08, left=0.06, right=0.94, hspace=0.3, wspace=0.25)
+        ax.set_title(f'Quality Score Distribution {period_text}', fontsize=20, fontweight='bold', pad=20)
+        plt.tight_layout()
         save_plot_to_supabase(plt, "Conversation quality analysis plot", chatbot_id, period)
         
     except Exception as e:
@@ -948,19 +838,165 @@ def generate_conversation_quality_analysis(conversations, chatbot_id, period):
         plt.close()
 
 
-def generate_user_engagement_funnel(conversations, chatbot_id, period):
-    """Advanced user engagement analysis with conversion funnel"""
+def generate_quality_correlation_plot(conversations, chatbot_id, period):
+    """Message depth vs quality correlation analysis"""
     try:
         plt.style.use('default')
-        fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(24, 18), dpi=150)
+        fig, ax = plt.subplots(1, 1, figsize=(12, 8), dpi=150)
         fig.patch.set_facecolor('white')
         
         if not conversations:
-            for ax in [ax1, ax2, ax3, ax4]:
-                ax.text(0.5, 0.5, 'No engagement data available', 
+            ax.text(0.5, 0.5, 'No conversation data available', 
+                   ha='center', va='center', fontsize=16, color='#7F8C8D')
+            ax.set_xticks([])
+            ax.set_yticks([])
+        else:
+            quality_scores = []
+            message_depths = []
+            
+            for convo in conversations:
+                if "messages" not in convo:
+                    continue
+
+                messages = convo["messages"]
+                user_messages = [msg for msg in messages if msg.get("role") == "user"]
+                assistant_messages = [msg for msg in messages if msg.get("role") == "assistant"]
+                
+                if not user_messages:
+                    continue
+
+                total_messages = len(messages)
+                user_count = len(user_messages)
+                assistant_count = len(assistant_messages)
+                response_ratio = assistant_count / user_count if user_count > 0 else 0
+                has_unanswered = any("Oops" in msg.get("content", "") for msg in assistant_messages)
+                
+                quality_score = min(100, (
+                    (min(total_messages, 20) / 20 * 30) +
+                    (min(response_ratio, 2) / 2 * 25) +
+                    (30 if not has_unanswered else 0) +
+                    (15 if total_messages > 5 else total_messages * 3)
+                ))
+                
+                quality_scores.append(quality_score)
+                message_depths.append(total_messages)
+            
+            if not quality_scores:
+                ax.text(0.5, 0.5, 'No valid conversation data', 
                        ha='center', va='center', fontsize=16, color='#7F8C8D')
                 ax.set_xticks([])
                 ax.set_yticks([])
+            else:
+                ax.scatter(message_depths, quality_scores, alpha=0.6, s=60, 
+                           c=quality_scores, cmap='RdYlGn', edgecolors='white', linewidth=1)
+                
+                # Add trend line
+                if len(message_depths) > 2:
+                    z = np.polyfit(message_depths, quality_scores, 1)
+                    p = np.poly1d(z)
+                    x_trend = np.linspace(min(message_depths), max(message_depths), 100)
+                    ax.plot(x_trend, p(x_trend), "--", color='#E74C3C', linewidth=2, alpha=0.8)
+                
+                ax.set_xlabel('Total Messages per Conversation', fontsize=12, fontweight='bold')
+                ax.set_ylabel('Quality Score', fontsize=12, fontweight='bold')
+                ax.grid(True, alpha=0.3)
+                ax.spines['top'].set_visible(False)
+                ax.spines['right'].set_visible(False)
+                
+                # Add correlation coefficient
+                correlation = np.corrcoef(message_depths, quality_scores)[0, 1] if len(message_depths) > 1 else 0
+                ax.text(0.05, 0.95, f'Correlation: {correlation:.3f}', transform=ax.transAxes,
+                        bbox=dict(boxstyle="round,pad=0.3", facecolor="#ECF0F1", alpha=0.8),
+                        fontsize=11, fontweight='bold')
+        
+        period_text = f"({period} days)" if period > 0 else "(All Time)"
+        ax.set_title(f'Message Depth vs Quality Correlation {period_text}', fontsize=20, fontweight='bold', pad=20)
+        plt.tight_layout()
+        save_plot_to_supabase(plt, "Quality correlation plot", chatbot_id, period)
+        
+    except Exception as e:
+        print(f"Error generating quality correlation plot: {e}")
+    finally:
+        plt.close()
+
+
+def generate_resolution_analysis_plot(conversations, chatbot_id, period):
+    """Problem resolution rate analysis"""
+    try:
+        plt.style.use('default')
+        fig, ax = plt.subplots(1, 1, figsize=(10, 10), dpi=150)
+        fig.patch.set_facecolor('white')
+        
+        if not conversations:
+            ax.text(0.5, 0.5, 'No conversation data available', 
+                   ha='center', va='center', fontsize=16, color='#7F8C8D')
+            ax.set_xticks([])
+            ax.set_yticks([])
+        else:
+            resolution_status = []
+            
+            for convo in conversations:
+                if "messages" not in convo:
+                    continue
+
+                messages = convo["messages"]
+                user_messages = [msg for msg in messages if msg.get("role") == "user"]
+                assistant_messages = [msg for msg in messages if msg.get("role") == "assistant"]
+                
+                if not user_messages:
+                    continue
+
+                # Check for unanswered queries
+                has_unanswered = any("Oops" in msg.get("content", "") for msg in assistant_messages)
+                resolution_status.append("Resolved" if not has_unanswered else "Unresolved")
+            
+            if not resolution_status:
+                ax.text(0.5, 0.5, 'No valid conversation data', 
+                       ha='center', va='center', fontsize=16, color='#7F8C8D')
+                ax.set_xticks([])
+                ax.set_yticks([])
+            else:
+                resolved_count = resolution_status.count("Resolved")
+                unresolved_count = resolution_status.count("Unresolved")
+                
+                if resolved_count + unresolved_count > 0:
+                    resolution_data = [resolved_count, unresolved_count]
+                    resolution_labels = ['Resolved', 'Unresolved']
+                    resolution_colors = ['#27AE60', '#E74C3C']
+                    
+                    wedges, texts, autotexts = ax.pie(resolution_data, labels=resolution_labels, 
+                                                      colors=resolution_colors, autopct='%1.1f%%',
+                                                      startangle=90, textprops={'fontsize': 12, 'fontweight': 'bold'},
+                                                      wedgeprops=dict(width=0.6, edgecolor='white', linewidth=2))
+                    
+                    # Center text
+                    resolution_rate = (resolved_count / (resolved_count + unresolved_count)) * 100
+                    ax.text(0, 0, f'{resolution_rate:.1f}%\nResolution\nRate', ha='center', va='center', 
+                            fontsize=14, fontweight='bold', color='#2C3E50')
+        
+        period_text = f"({period} days)" if period > 0 else "(All Time)"
+        ax.set_title(f'Problem Resolution Analysis {period_text}', fontsize=20, fontweight='bold', pad=20)
+        plt.tight_layout()
+        save_plot_to_supabase(plt, "Resolution analysis plot", chatbot_id, period)
+        
+    except Exception as e:
+        print(f"Error generating resolution analysis plot: {e}")
+    finally:
+        plt.close()
+
+
+def generate_user_engagement_funnel(conversations, chatbot_id, period):
+    """User engagement funnel analysis"""
+    try:
+        plt.style.use('default')
+        fig, ax = plt.subplots(1, 1, figsize=(14, 10), dpi=150)
+        fig.patch.set_facecolor('white')
+        
+        if not conversations:
+            ax.text(0.5, 0.5, 'No engagement data available', 
+                   ha='center', va='center', fontsize=16, color='#7F8C8D')
+            ax.set_xticks([])
+            ax.set_yticks([])
         else:
             # Analyze engagement patterns
             engagement_stages = {
@@ -972,7 +1008,6 @@ def generate_user_engagement_funnel(conversations, chatbot_id, period):
             }
             
             user_message_counts = []
-            conversation_lengths = []
             
             for convo in conversations:
                 if "messages" not in convo:
@@ -986,7 +1021,6 @@ def generate_user_engagement_funnel(conversations, chatbot_id, period):
                     continue
                 
                 user_message_counts.append(user_count)
-                conversation_lengths.append(len(messages))
                 
                 # Categorize engagement
                 if user_count >= 1:
@@ -1001,151 +1035,180 @@ def generate_user_engagement_funnel(conversations, chatbot_id, period):
                     engagement_stages["Power Users (20+ msgs)"] += 1
             
             if not user_message_counts:
-                for ax in [ax1, ax2, ax3, ax4]:
-                    ax.text(0.5, 0.5, 'No valid engagement data', 
-                           ha='center', va='center', fontsize=16, color='#7F8C8D')
-                    ax.set_xticks([])
-                    ax.set_yticks([])
+                ax.text(0.5, 0.5, 'No valid engagement data', 
+                       ha='center', va='center', fontsize=16, color='#7F8C8D')
+                ax.set_xticks([])
+                ax.set_yticks([])
             else:
-                # 1. Engagement Funnel
+                # Engagement Funnel
                 stages = list(engagement_stages.keys())
                 values = list(engagement_stages.values())
                 colors = ['#1ABC9C', '#3498DB', '#9B59B6', '#E67E22', '#E74C3C']
                 
                 # Create horizontal funnel
                 y_positions = np.arange(len(stages))[::-1]  # Reverse for funnel effect
-                bars = ax1.barh(y_positions, values, color=colors, alpha=0.8, edgecolor='white', linewidth=2)
+                bars = ax.barh(y_positions, values, color=colors, alpha=0.8, edgecolor='white', linewidth=2)
                 
                 # Add labels with percentages
                 initial_users = values[0] if values else 1
                 for i, (bar, value) in enumerate(zip(bars, values)):
                     if value > 0:
                         percentage = (value / initial_users) * 100
-                        ax1.text(value + max(values) * 0.02, bar.get_y() + bar.get_height()/2,
+                        ax.text(value + max(values) * 0.02, bar.get_y() + bar.get_height()/2,
                                 f'{value:,} ({percentage:.1f}%)', va='center', fontweight='bold', fontsize=11)
                 
-                ax1.set_yticks(y_positions)
-                ax1.set_yticklabels(stages, fontsize=11)
-                ax1.set_xlabel('Number of Users', fontsize=12, fontweight='bold')
-                ax1.set_title('User Engagement Funnel', fontsize=16, fontweight='bold')
-                ax1.grid(True, alpha=0.3, axis='x')
-                ax1.spines['top'].set_visible(False)
-                ax1.spines['right'].set_visible(False)
+                ax.set_yticks(y_positions)
+                ax.set_yticklabels(stages, fontsize=11)
+                ax.set_xlabel('Number of Users', fontsize=12, fontweight='bold')
+                ax.grid(True, alpha=0.3, axis='x')
+                ax.spines['top'].set_visible(False)
+                ax.spines['right'].set_visible(False)
+        
+        period_text = f"({period} days)" if period > 0 else "(All Time)"
+        ax.set_title(f'User Engagement Funnel {period_text}', fontsize=20, fontweight='bold', pad=20)
+        plt.tight_layout()
+        save_plot_to_supabase(plt, "User engagement funnel plot", chatbot_id, period)
+        
+    except Exception as e:
+        print(f"Error generating user engagement funnel: {e}")
+    finally:
+        plt.close()
+
+
+def generate_user_message_distribution(conversations, chatbot_id, period):
+    """User message count distribution"""
+    try:
+        plt.style.use('default')
+        fig, ax = plt.subplots(1, 1, figsize=(12, 8), dpi=150)
+        fig.patch.set_facecolor('white')
+        
+        if not conversations:
+            ax.text(0.5, 0.5, 'No engagement data available', 
+                   ha='center', va='center', fontsize=16, color='#7F8C8D')
+            ax.set_xticks([])
+            ax.set_yticks([])
+        else:
+            user_message_counts = []
+            
+            for convo in conversations:
+                if "messages" not in convo:
+                    continue
+
+                messages = convo["messages"]
+                user_messages = [msg for msg in messages if msg.get("role") == "user"]
+                user_count = len(user_messages)
                 
-                # 2. Message Count Distribution
-                ax2.hist(user_message_counts, bins=min(20, max(user_message_counts)), 
+                if user_count > 0:
+                    user_message_counts.append(user_count)
+            
+            if not user_message_counts:
+                ax.text(0.5, 0.5, 'No valid engagement data', 
+                       ha='center', va='center', fontsize=16, color='#7F8C8D')
+                ax.set_xticks([])
+                ax.set_yticks([])
+            else:
+                ax.hist(user_message_counts, bins=min(20, max(user_message_counts)), 
                         color='#3498DB', alpha=0.7, edgecolor='white', linewidth=1)
                 
                 avg_messages = np.mean(user_message_counts)
                 median_messages = np.median(user_message_counts)
                 
-                ax2.axvline(avg_messages, color='#E74C3C', linestyle='--', linewidth=2,
+                ax.axvline(avg_messages, color='#E74C3C', linestyle='--', linewidth=2,
                            label=f'Average: {avg_messages:.1f}')
-                ax2.axvline(median_messages, color='#F39C12', linestyle='--', linewidth=2,
+                ax.axvline(median_messages, color='#F39C12', linestyle='--', linewidth=2,
                            label=f'Median: {median_messages:.1f}')
                 
-                ax2.set_xlabel('Messages per User', fontsize=12, fontweight='bold')
-                ax2.set_ylabel('Number of Users', fontsize=12, fontweight='bold')
-                ax2.set_title('User Message Distribution', fontsize=16, fontweight='bold')
-                ax2.legend(fontsize=11, frameon=True, fancybox=True, shadow=True)
-                ax2.grid(True, alpha=0.3)
-                ax2.spines['top'].set_visible(False)
-                ax2.spines['right'].set_visible(False)
-                
-                # 3. Engagement Level Pie Chart
-                # Filter out zero values for pie chart
-                non_zero_engagement = [(stage, value) for stage, value in engagement_stages.items() if value > 0]
-                if non_zero_engagement:
-                    pie_labels, pie_values = zip(*non_zero_engagement)
-                    pie_colors = [colors[stages.index(label)] for label in pie_labels]
-                    
-                    wedges, texts, autotexts = ax3.pie(pie_values, labels=pie_labels, colors=pie_colors,
-                                                      autopct='%1.1f%%', startangle=90,
-                                                      textprops={'fontsize': 10, 'fontweight': 'bold'},
-                                                      wedgeprops=dict(width=0.7, edgecolor='white', linewidth=2))
-                    
-                    # Center text
-                    total_users = sum(pie_values)
-                    ax3.text(0, 0, f'{total_users:,}\nUsers', ha='center', va='center', 
-                            fontsize=14, fontweight='bold', color='#2C3E50')
-                
-                ax3.set_title('Engagement Level Distribution', fontsize=16, fontweight='bold')
-                
-                # 4. Engagement Metrics & Insights
-                ax4.axis('off')
-                ax4.set_title('Engagement Insights', fontsize=16, fontweight='bold', y=0.95)
-                
-                # Calculate key metrics
-                total_users = len(user_message_counts)
-                bounce_rate = ((values[0] - sum(values[1:])) / values[0] * 100) if values[0] > 0 else 0
-                activation_rate = (sum(values[1:]) / values[0] * 100) if values[0] > 0 else 0
-                power_user_rate = (values[4] / values[0] * 100) if values[0] > 0 else 0
-                retention_score = (sum(values[2:]) / values[0] * 100) if values[0] > 0 else 0
-                
-                # Engagement quality assessment
-                if activation_rate >= 60:
-                    engagement_quality = "Excellent"
-                    quality_color = "#27AE60"
-                elif activation_rate >= 40:
-                    engagement_quality = "Good"
-                    quality_color = "#3498DB"
-                elif activation_rate >= 25:
-                    engagement_quality = "Fair"
-                    quality_color = "#F39C12"
-                else:
-                    engagement_quality = "Needs Improvement"
-                    quality_color = "#E74C3C"
-                
-                metrics = [
-                    ('Total Users', f'{total_users:,}'),
-                    ('Bounce Rate', f'{bounce_rate:.1f}%'),
-                    ('Activation Rate', f'{activation_rate:.1f}%'),
-                    ('Retention Score', f'{retention_score:.1f}%'),
-                    ('Power User Rate', f'{power_user_rate:.1f}%'),
-                    ('Engagement Quality', engagement_quality)
-                ]
-                
-                y_start = 0.8
-                for i, (metric, value) in enumerate(metrics):
-                    y_pos = y_start - (i * 0.12)
-                    ax4.text(0.05, y_pos, f'• {metric}:', fontsize=13, fontweight='bold', 
-                            transform=ax4.transAxes, va='center')
-                    
-                    # Color code quality metric
-                    text_color = quality_color if i == 5 else '#2C3E50'
-                    box_color = quality_color if i == 5 else "#ECF0F1"
-                    
-                    ax4.text(0.95, y_pos, value, fontsize=13, transform=ax4.transAxes, 
-                            va='center', ha='right', color=text_color, fontweight='bold' if i == 5 else 'normal',
-                            bbox=dict(boxstyle="round,pad=0.4", facecolor=box_color, alpha=0.3 if i == 5 else 0.8))
-                
-                # Strategic recommendations
-                recommendations = []
-                if bounce_rate > 60:
-                    recommendations.append("High bounce rate - improve initial user experience")
-                if power_user_rate < 5:
-                    recommendations.append("Focus on converting active users to power users")
-                if activation_rate < 30:
-                    recommendations.append("Implement engagement triggers for new users")
-                if not recommendations:
-                    recommendations.append("Strong engagement patterns - maintain current strategy")
-                
-                rec_text = "Strategic Recommendations:\n" + "\n".join(f"• {rec}" for rec in recommendations[:3])
-                ax4.text(0.5, 0.05, rec_text, transform=ax4.transAxes, ha='center', va='bottom', 
-                        fontsize=11, style='italic',
-                        bbox=dict(boxstyle="round,pad=0.5", facecolor="#F8F9FA", alpha=0.9, 
-                                 edgecolor='#BDC3C7', linewidth=1))
+                ax.set_xlabel('Messages per User', fontsize=12, fontweight='bold')
+                ax.set_ylabel('Number of Users', fontsize=12, fontweight='bold')
+                ax.legend(fontsize=11, frameon=True, fancybox=True, shadow=True)
+                ax.grid(True, alpha=0.3)
+                ax.spines['top'].set_visible(False)
+                ax.spines['right'].set_visible(False)
         
         period_text = f"({period} days)" if period > 0 else "(All Time)"
-        fig.suptitle(f'User Engagement Analytics Dashboard {period_text}', 
-                    fontsize=24, fontweight='bold', y=0.95, color='#2C3E50')
-        
-        plt.tight_layout(pad=3.0, h_pad=2.5, w_pad=2.5)
-        plt.subplots_adjust(top=0.92, bottom=0.08, left=0.06, right=0.94, hspace=0.3, wspace=0.25)
-        save_plot_to_supabase(plt, "User engagement funnel plot", chatbot_id, period)
+        ax.set_title(f'User Message Distribution {period_text}', fontsize=20, fontweight='bold', pad=20)
+        plt.tight_layout()
+        save_plot_to_supabase(plt, "User message distribution plot", chatbot_id, period)
         
     except Exception as e:
-        print(f"Error generating user engagement funnel: {e}")
+        print(f"Error generating user message distribution: {e}")
+    finally:
+        plt.close()
+
+
+def generate_engagement_level_distribution(conversations, chatbot_id, period):
+    """Engagement level pie chart"""
+    try:
+        plt.style.use('default')
+        fig, ax = plt.subplots(1, 1, figsize=(10, 10), dpi=150)
+        fig.patch.set_facecolor('white')
+        
+        if not conversations:
+            ax.text(0.5, 0.5, 'No engagement data available', 
+                   ha='center', va='center', fontsize=16, color='#7F8C8D')
+            ax.set_xticks([])
+            ax.set_yticks([])
+        else:
+            engagement_stages = {
+                "Initial Contact": 0,
+                "Engaged (2-4 msgs)": 0,
+                "Active (5-9 msgs)": 0,
+                "Highly Engaged (10-19 msgs)": 0,
+                "Power Users (20+ msgs)": 0
+            }
+            
+            for convo in conversations:
+                if "messages" not in convo:
+                    continue
+
+                messages = convo["messages"]
+                user_messages = [msg for msg in messages if msg.get("role") == "user"]
+                user_count = len(user_messages)
+                
+                if user_count == 0:
+                    continue
+                
+                # Categorize engagement
+                if user_count >= 1:
+                    engagement_stages["Initial Contact"] += 1
+                if 2 <= user_count <= 4:
+                    engagement_stages["Engaged (2-4 msgs)"] += 1
+                elif 5 <= user_count <= 9:
+                    engagement_stages["Active (5-9 msgs)"] += 1
+                elif 10 <= user_count <= 19:
+                    engagement_stages["Highly Engaged (10-19 msgs)"] += 1
+                elif user_count >= 20:
+                    engagement_stages["Power Users (20+ msgs)"] += 1
+            
+            # Filter out zero values for pie chart
+            non_zero_engagement = [(stage, value) for stage, value in engagement_stages.items() if value > 0]
+            if non_zero_engagement:
+                stages = list(engagement_stages.keys())
+                colors = ['#1ABC9C', '#3498DB', '#9B59B6', '#E67E22', '#E74C3C']
+                
+                pie_labels, pie_values = zip(*non_zero_engagement)
+                pie_colors = [colors[stages.index(label)] for label in pie_labels]
+                
+                wedges, texts, autotexts = ax.pie(pie_values, labels=pie_labels, colors=pie_colors,
+                                                  autopct='%1.1f%%', startangle=90,
+                                                  textprops={'fontsize': 10, 'fontweight': 'bold'},
+                                                  wedgeprops=dict(width=0.7, edgecolor='white', linewidth=2))
+                
+                # Center text
+                total_users = sum(pie_values)
+                ax.text(0, 0, f'{total_users:,}\nUsers', ha='center', va='center', 
+                        fontsize=14, fontweight='bold', color='#2C3E50')
+            else:
+                ax.text(0.5, 0.5, 'No valid engagement data', 
+                       ha='center', va='center', fontsize=16, color='#7F8C8D')
+        
+        period_text = f"({period} days)" if period > 0 else "(All Time)"
+        ax.set_title(f'Engagement Level Distribution {period_text}', fontsize=20, fontweight='bold', pad=20)
+        plt.tight_layout()
+        save_plot_to_supabase(plt, "Engagement level distribution plot", chatbot_id, period)
+        
+    except Exception as e:
+        print(f"Error generating engagement level distribution: {e}")
     finally:
         plt.close()
 
@@ -1209,13 +1272,34 @@ def get_conversation_insights(chatbot_id, period):
         # Clean existing plots first to ensure fresh generation
         clean_existing_plots(chatbot_id, period)
 
-        # Generate all 6 focused visualizations
+        # Generate all individual plots (16 total)
+        # Message Analysis (4 plots)
         generate_message_distribution(user_queries, assistant_responses, chatbot_id, period)
+        generate_message_length_analysis(user_queries, assistant_responses, chatbot_id, period)
+        generate_message_complexity_analysis(user_queries, assistant_responses, chatbot_id, period)
+        generate_key_performance_metrics(user_queries, assistant_responses, chatbot_id, period)
+        
+        # Sentiment Analysis (2 plots)
         generate_sentiment_analysis(user_queries, chatbot_id, period)
+        generate_sentiment_score_distribution(user_queries, chatbot_id, period)
+        
+        # Chat Volume (1 plot)
         generate_chat_volume_plot(conversations, chatbot_id, period)
+        
+        # Peak Hours Activity (3 plots)
         generate_peak_hours_activity_plot(conversations, chatbot_id, period)
+        generate_day_of_week_activity_plot(conversations, chatbot_id, period)
+        generate_business_hours_analysis_plot(conversations, chatbot_id, period)
+        
+        # Quality Analysis (3 plots)
         generate_conversation_quality_analysis(conversations, chatbot_id, period)
+        generate_quality_correlation_plot(conversations, chatbot_id, period)
+        generate_resolution_analysis_plot(conversations, chatbot_id, period)
+        
+        # User Engagement (3 plots)
         generate_user_engagement_funnel(conversations, chatbot_id, period)
+        generate_user_message_distribution(conversations, chatbot_id, period)
+        generate_engagement_level_distribution(conversations, chatbot_id, period)
 
         # Prepare insights data
         current_date = datetime.now().date().isoformat()
