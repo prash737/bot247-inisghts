@@ -1,5 +1,4 @@
 
-# Updated get_conversation_insights function to store insights in the "insights" table with specified JSON formats and date.
 from supabase import create_client, Client
 import time
 from datetime import datetime, timedelta
@@ -14,7 +13,6 @@ import logging
 from typing import List, Dict, Optional, Tuple
 import sys
 
-# Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
@@ -25,7 +23,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Initialize Supabase client with proper error handling
 import os
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
@@ -42,14 +39,12 @@ except Exception as e:
     logger.error(f"Failed to initialize Supabase client: {e}")
     raise
 
-# Constants
 MAX_RETRIES = 3
 BATCH_SIZE = 1000
-PLOT_TIMEOUT = 30  # seconds
+PLOT_TIMEOUT = 30
 
 
 def retry_on_failure(max_retries: int = MAX_RETRIES):
-    """Decorator for retrying functions on failure"""
     def decorator(func):
         def wrapper(*args, **kwargs):
             last_exception = None
@@ -59,7 +54,7 @@ def retry_on_failure(max_retries: int = MAX_RETRIES):
                 except Exception as e:
                     last_exception = e
                     if attempt < max_retries - 1:
-                        wait_time = 2 ** attempt  # Exponential backoff
+                        wait_time = 2 ** attempt
                         logger.warning(f"Attempt {attempt + 1} failed for {func.__name__}: {e}. Retrying in {wait_time}s...")
                         time.sleep(wait_time)
                     else:
@@ -71,9 +66,7 @@ def retry_on_failure(max_retries: int = MAX_RETRIES):
 
 @retry_on_failure()
 def fetch_all_conversations(chatbot_id: str) -> List[Dict]:
-    """Fetch all conversations for a chatbot with improved error handling and efficiency"""
     try:
-        # Get total count first
         count_query = supabase.table('testing_zaps2').select(
             '*', count='exact').eq('chatbot_id', chatbot_id)
         count_response = count_query.execute()
@@ -114,9 +107,7 @@ def fetch_all_conversations(chatbot_id: str) -> List[Dict]:
 
 @retry_on_failure()
 def get_distinct_chatbot_ids() -> List[str]:
-    """Get distinct chatbot IDs with improved error handling"""
     try:
-        # Use aggregation to get distinct values more efficiently
         response = supabase.rpc('get_distinct_chatbot_ids').execute()
         
         if response.data:
@@ -127,7 +118,6 @@ def get_distinct_chatbot_ids() -> List[str]:
     except Exception as e:
         logger.warning(f"RPC call failed, falling back to manual method: {e}")
         
-    # Fallback to original method if RPC fails
     try:
         all_ids = set()
         offset = 0
@@ -156,19 +146,16 @@ def get_distinct_chatbot_ids() -> List[str]:
 
 
 def validate_conversation_data(conversations: List[Dict]) -> List[Dict]:
-    """Validate and clean conversation data"""
     valid_conversations = []
     
     for convo in conversations:
         try:
-            # Check required fields
             if not isinstance(convo.get('messages'), list):
                 continue
                 
             if not convo.get('id'):
                 continue
                 
-            # Validate date format
             if convo.get('date_of_convo'):
                 try:
                     datetime.strptime(convo['date_of_convo'], "%Y-%m-%d")
@@ -187,7 +174,6 @@ def validate_conversation_data(conversations: List[Dict]) -> List[Dict]:
 
 
 def find_unanswered_queries(conversations: List[Dict]) -> List[str]:
-    """Find unanswered queries with improved error handling"""
     unanswered_queries = []
     unanswered_patterns = ["Oops", "I don't know", "I'm not sure", "I can't help"]
 
@@ -220,7 +206,6 @@ def find_unanswered_queries(conversations: List[Dict]) -> List[str]:
 
 
 def clean_existing_plots(chatbot_id: str, period: int):
-    """Clean existing plots with improved error handling"""
     PLOT_BUCKET_NAME = "plots"
     today = datetime.now().strftime("%Y-%m-%d")
     dir_path = f"{chatbot_id}/{today}/{period}"
@@ -237,18 +222,15 @@ def clean_existing_plots(chatbot_id: str, period: int):
 
 
 def save_plot_to_supabase(plt_fig, plot_name: str, chatbot_id: str, period: int) -> bool:
-    """Save plot to Supabase with improved error handling"""
     PLOT_BUCKET_NAME = "plots"
     today = datetime.now().strftime("%Y-%m-%d")
     dir_path = f"{chatbot_id}/{today}/{period}"
 
     try:
-        # Validate inputs
         if not plot_name or not chatbot_id:
             logger.error("Invalid plot_name or chatbot_id")
             return False
             
-        # Save plot to buffer with timeout protection
         buf = io.BytesIO()
         plt_fig.savefig(buf, format='png', dpi=150, bbox_inches='tight', 
                        facecolor='white', edgecolor='none')
@@ -260,7 +242,6 @@ def save_plot_to_supabase(plt_fig, plot_name: str, chatbot_id: str, period: int)
             logger.error(f"Empty plot generated for {plot_name}")
             return False
 
-        # Upload to Supabase
         filename = f"{dir_path}/{plot_name}.png"
         response = supabase.storage.from_(PLOT_BUCKET_NAME).upload(
             filename, file_content, {
@@ -281,14 +262,11 @@ def save_plot_to_supabase(plt_fig, plot_name: str, chatbot_id: str, period: int)
 
 
 def safe_plot_generation(func):
-    """Decorator for safe plot generation with resource cleanup"""
     def wrapper(*args, **kwargs):
         fig = None
         try:
-            # Set matplotlib backend to non-interactive
             plt.ioff()
             
-            # Call the plot generation function
             result = func(*args, **kwargs)
             return result
             
@@ -296,9 +274,7 @@ def safe_plot_generation(func):
             logger.error(f"Error in plot generation {func.__name__}: {e}")
             return False
         finally:
-            # Ensure all figures are closed
             plt.close('all')
-            # Clear any remaining figures
             if plt.get_fignums():
                 for fignum in plt.get_fignums():
                     plt.close(fignum)
@@ -308,7 +284,6 @@ def safe_plot_generation(func):
 @safe_plot_generation
 def generate_message_distribution(user_queries: List[str], assistant_responses: List[str], 
                                 chatbot_id: str, period: int):
-    """Message distribution pie chart with improved validation"""
     try:
         plt.style.use('default')
         fig, ax = plt.subplots(1, 1, figsize=(12, 10), dpi=150)
@@ -327,7 +302,6 @@ def generate_message_distribution(user_queries: List[str], assistant_responses: 
             sizes = [total_queries, total_responses]
             colors = ['#3498DB', '#E74C3C']
             
-            # Filter out zero values
             non_zero_data = [(label, size, color) for label, size, color in zip(labels, sizes, colors) if size > 0]
             
             if non_zero_data:
@@ -338,7 +312,6 @@ def generate_message_distribution(user_queries: List[str], assistant_responses: 
                                                   wedgeprops=dict(width=0.6, edgecolor='white', linewidth=3),
                                                   textprops={'fontsize': 14, 'fontweight': 'bold'})
                 
-                # Center text
                 total_messages = sum(sizes)
                 ax.text(0, 0.1, f'{total_messages:,}', ha='center', va='center', 
                         fontsize=20, fontweight='bold', color='#2C3E50')
@@ -359,7 +332,6 @@ def generate_message_distribution(user_queries: List[str], assistant_responses: 
 @safe_plot_generation
 def generate_message_length_analysis(user_queries: List[str], assistant_responses: List[str], 
                                    chatbot_id: str, period: int):
-    """Message length distribution analysis with improved validation"""
     try:
         plt.style.use('default')
         fig, ax = plt.subplots(1, 1, figsize=(12, 8), dpi=150)
@@ -371,7 +343,6 @@ def generate_message_length_analysis(user_queries: List[str], assistant_response
             ax.set_xticks([])
             ax.set_yticks([])
         else:
-            # Calculate lengths safely
             query_lengths = [len(str(q).split()) for q in user_queries if q and str(q).strip()]
             response_lengths = [len(str(r).split()) for r in assistant_responses if r and str(r).strip()]
             
@@ -379,7 +350,6 @@ def generate_message_length_analysis(user_queries: List[str], assistant_response
                 ax.text(0.5, 0.5, 'No valid message data available', 
                        ha='center', va='center', fontsize=16, color='#7F8C8D')
             else:
-                # Create bins for better visualization
                 max_length = max(
                     max(query_lengths) if query_lengths else 0, 
                     max(response_lengths) if response_lengths else 0
@@ -426,7 +396,6 @@ def generate_message_length_analysis(user_queries: List[str], assistant_response
 @safe_plot_generation
 def generate_message_complexity_analysis(user_queries: List[str], assistant_responses: List[str], 
                                        chatbot_id: str, period: int):
-    """Message complexity distribution with improved validation"""
     try:
         plt.style.use('default')
         fig, ax = plt.subplots(1, 1, figsize=(12, 8), dpi=150)
@@ -474,7 +443,6 @@ def generate_message_complexity_analysis(user_queries: List[str], assistant_resp
                     ax.spines['top'].set_visible(False)
                     ax.spines['right'].set_visible(False)
                     
-                    # Add value labels
                     max_value = max(values) if values else 0
                     for bar, value in zip(bars, values):
                         if value > 0:
@@ -497,7 +465,6 @@ def generate_message_complexity_analysis(user_queries: List[str], assistant_resp
 @safe_plot_generation
 def generate_key_performance_metrics(user_queries: List[str], assistant_responses: List[str], 
                                    chatbot_id: str, period: int):
-    """Key performance metrics panel with improved calculations"""
     try:
         plt.style.use('default')
         fig, ax = plt.subplots(1, 1, figsize=(12, 10), dpi=150)
@@ -512,7 +479,6 @@ def generate_key_performance_metrics(user_queries: List[str], assistant_response
             total_responses = len(assistant_responses) if assistant_responses else 0
             all_messages = [msg for msg in (user_queries + assistant_responses) if msg and str(msg).strip()]
             
-            # Calculate metrics safely
             try:
                 valid_queries = [q for q in user_queries if q and str(q).strip()]
                 valid_responses = [r for r in assistant_responses if r and str(r).strip()]
@@ -535,7 +501,6 @@ def generate_key_performance_metrics(user_queries: List[str], assistant_response
                 for i, (metric, value) in enumerate(metrics):
                     y_pos = y_start - (i * 0.12)
                     
-                    # Metric box
                     ax.text(0.05, y_pos, metric, fontsize=16, fontweight='bold', 
                             transform=ax.transAxes, va='center')
                     ax.text(0.95, y_pos, value, fontsize=16, transform=ax.transAxes, 
@@ -543,7 +508,6 @@ def generate_key_performance_metrics(user_queries: List[str], assistant_response
                             bbox=dict(boxstyle="round,pad=0.4", facecolor="#ECF0F1", 
                                      edgecolor='#BDC3C7', linewidth=1))
                 
-                # Performance indicator
                 if total_queries > 0:
                     performance_score = min(100, (response_ratio * 50) + (min(avg_response_length, 20) * 2.5))
                     performance_level = 'Excellent' if performance_score >= 80 else 'Good' if performance_score >= 60 else 'Fair'
@@ -572,7 +536,6 @@ def generate_key_performance_metrics(user_queries: List[str], assistant_response
 
 @safe_plot_generation
 def generate_sentiment_analysis(user_queries: List[str], chatbot_id: str, period: int):
-    """Sentiment distribution pie chart with improved validation"""
     try:
         plt.style.use('default')
         fig, ax = plt.subplots(1, 1, figsize=(12, 10), dpi=150)
@@ -616,7 +579,6 @@ def generate_sentiment_analysis(user_queries: List[str], chatbot_id: str, period
                 ordered_values = [sentiments[label] for label in ordered_labels]
                 colors = ["#27AE60", "#F39C12", "#E74C3C"]
                 
-                # Filter out zero values
                 non_zero_data = [(label, value, color) for label, value, color in 
                                zip(ordered_labels, ordered_values, colors) if value > 0]
                 
@@ -631,13 +593,11 @@ def generate_sentiment_analysis(user_queries: List[str], chatbot_id: str, period
                         wedgeprops=dict(width=0.6, edgecolor='white', linewidth=3)
                     )
                     
-                    # Style percentage labels
                     for autotext in autotexts:
                         autotext.set_color('white')
                         autotext.set_fontweight('bold')
                         autotext.set_bbox(dict(boxstyle="round,pad=0.3", facecolor='black', alpha=0.8))
                     
-                    # Center content
                     total_queries = sum(values)
                     ax.text(0, 0.15, 'SENTIMENT', ha='center', va='center', 
                             fontsize=16, fontweight='bold', color='#2C3E50')
@@ -659,7 +619,6 @@ def generate_sentiment_analysis(user_queries: List[str], chatbot_id: str, period
 
 @safe_plot_generation
 def generate_sentiment_score_distribution(user_queries: List[str], chatbot_id: str, period: int):
-    """Sentiment score distribution histogram with improved validation"""
     try:
         plt.style.use('default')
         fig, ax = plt.subplots(1, 1, figsize=(12, 8), dpi=150)
@@ -705,7 +664,6 @@ def generate_sentiment_score_distribution(user_queries: List[str], chatbot_id: s
                 ax.spines['top'].set_visible(False)
                 ax.spines['right'].set_visible(False)
                 
-                # Add annotations for sentiment ranges
                 y_max = ax.get_ylim()[1]
                 ax.text(-0.8, y_max*0.8, 'Very\nNegative', ha='center', va='center', 
                         fontsize=10, bbox=dict(boxstyle="round,pad=0.3", facecolor="#E74C3C", alpha=0.3))
@@ -727,7 +685,6 @@ def generate_sentiment_score_distribution(user_queries: List[str], chatbot_id: s
 
 @safe_plot_generation
 def generate_chat_volume_plot(conversations: List[Dict], chatbot_id: str, period: int):
-    """Chat volume trend analysis with improved data handling"""
     try:
         plt.style.use('default')
         fig, ax = plt.subplots(1, 1, figsize=(14, 8), dpi=150)
@@ -736,7 +693,6 @@ def generate_chat_volume_plot(conversations: List[Dict], chatbot_id: str, period
         valid_conversations = validate_conversation_data(conversations)
         
         if period == 0:
-            # Monthly aggregation for all-time data
             monthly_counts = {}
             for convo in valid_conversations:
                 try:
@@ -759,7 +715,6 @@ def generate_chat_volume_plot(conversations: List[Dict], chatbot_id: str, period
                 counts = [monthly_counts[date] for date in dates]
                 formatted_dates = [datetime.strptime(date, "%Y-%m").strftime("%b %Y") for date in dates]
 
-                # Main trend line
                 ax.plot(formatted_dates, counts, marker='o', linewidth=3, markersize=8, 
                         color='#3498DB', markerfacecolor='#E74C3C', markeredgecolor='white', markeredgewidth=2)
                 ax.fill_between(formatted_dates, counts, alpha=0.3, color='#3498DB')
@@ -770,7 +725,6 @@ def generate_chat_volume_plot(conversations: List[Dict], chatbot_id: str, period
                 ax.spines['top'].set_visible(False)
                 ax.spines['right'].set_visible(False)
                 
-                # Add peak annotation
                 if counts:
                     max_count = max(counts)
                     max_idx = counts.index(max_count)
@@ -781,7 +735,6 @@ def generate_chat_volume_plot(conversations: List[Dict], chatbot_id: str, period
                                bbox=dict(boxstyle="round,pad=0.3", facecolor="#E74C3C", alpha=0.3))
                 
         else:
-            # Daily data for specific periods
             current_date = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
             daily_counts = {}
 
@@ -810,7 +763,6 @@ def generate_chat_volume_plot(conversations: List[Dict], chatbot_id: str, period
                 ax.set_xticks([])
                 ax.set_yticks([])
             else:
-                # Line plot with trend
                 ax.plot(formatted_dates, counts, marker='o', linewidth=3, markersize=6, 
                         color='#3498DB', markerfacecolor='#E74C3C', markeredgecolor='white', markeredgewidth=2)
                 ax.fill_between(formatted_dates, counts, alpha=0.3, color='#3498DB')
@@ -821,7 +773,6 @@ def generate_chat_volume_plot(conversations: List[Dict], chatbot_id: str, period
                 ax.spines['top'].set_visible(False)
                 ax.spines['right'].set_visible(False)
                 
-                # Add trend line
                 if len(counts) > 2:
                     try:
                         z = np.polyfit(range(len(counts)), counts, 1)
@@ -846,18 +797,15 @@ def generate_chat_volume_plot(conversations: List[Dict], chatbot_id: str, period
 
 @safe_plot_generation
 def generate_peak_hours_activity_plot(conversations: List[Dict], chatbot_id: str, period: int):
-    """Hourly activity pattern analysis with improved validation"""
     try:
         plt.style.use('default')
         fig, ax = plt.subplots(1, 1, figsize=(14, 8), dpi=150)
         fig.patch.set_facecolor('white')
         
-        # Initialize 24-hour activity counter
         hourly_activity = {hour: 0 for hour in range(24)}
         
         valid_conversations = validate_conversation_data(conversations)
         
-        # Count conversations by hour
         for convo in valid_conversations:
             if "messages" not in convo:
                 continue
@@ -865,7 +813,6 @@ def generate_peak_hours_activity_plot(conversations: List[Dict], chatbot_id: str
             try:
                 if "created_at" in convo and convo["created_at"]:
                     timestamp_str = convo["created_at"]
-                    # Handle different timestamp formats
                     if timestamp_str.endswith('Z'):
                         timestamp = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
                     else:
@@ -890,7 +837,6 @@ def generate_peak_hours_activity_plot(conversations: List[Dict], chatbot_id: str
             bars = ax.bar(hours, activity_counts, color='#3498DB', alpha=0.7, 
                          edgecolor='white', linewidth=1)
             
-            # Highlight peak hour
             if max(activity_counts) > 0:
                 peak_hour = hours[activity_counts.index(max(activity_counts))]
                 bars[peak_hour].set_color('#E74C3C')
@@ -918,19 +864,16 @@ def generate_peak_hours_activity_plot(conversations: List[Dict], chatbot_id: str
 
 @safe_plot_generation
 def generate_day_of_week_activity_plot(conversations: List[Dict], chatbot_id: str, period: int):
-    """Day of week activity analysis with improved validation"""
     try:
         plt.style.use('default')
         fig, ax = plt.subplots(1, 1, figsize=(12, 8), dpi=150)
         fig.patch.set_facecolor('white')
         
-        # Initialize day-of-week activity counter
-        daily_activity = {day: 0 for day in range(7)}  # 0=Monday, 6=Sunday
+        daily_activity = {day: 0 for day in range(7)}
         day_names = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
         
         valid_conversations = validate_conversation_data(conversations)
         
-        # Count conversations by day of week
         for convo in valid_conversations:
             if "messages" not in convo:
                 continue
@@ -945,7 +888,6 @@ def generate_day_of_week_activity_plot(conversations: List[Dict], chatbot_id: st
                     day_of_week = timestamp.weekday()
                     daily_activity[day_of_week] += 1
                 elif "date_of_convo" in convo and convo["date_of_convo"]:
-                    # Fallback to date only
                     date_obj = datetime.strptime(convo["date_of_convo"], "%Y-%m-%d")
                     day_of_week = date_obj.weekday()
                     daily_activity[day_of_week] += 1
@@ -965,7 +907,6 @@ def generate_day_of_week_activity_plot(conversations: List[Dict], chatbot_id: st
             day_bars = ax.bar(day_names, day_counts, color='#27AE60', alpha=0.7, 
                              edgecolor='white', linewidth=1)
             
-            # Highlight busiest day
             if max(day_counts) > 0:
                 busiest_day_idx = day_counts.index(max(day_counts))
                 day_bars[busiest_day_idx].set_color('#E74C3C')
@@ -977,7 +918,6 @@ def generate_day_of_week_activity_plot(conversations: List[Dict], chatbot_id: st
             ax.spines['top'].set_visible(False)
             ax.spines['right'].set_visible(False)
             
-            # Add value labels
             max_count = max(day_counts) if day_counts else 0
             for bar, count in zip(day_bars, day_counts):
                 if count > 0:
@@ -999,18 +939,15 @@ def generate_day_of_week_activity_plot(conversations: List[Dict], chatbot_id: st
 
 @safe_plot_generation
 def generate_business_hours_analysis_plot(conversations: List[Dict], chatbot_id: str, period: int):
-    """Business vs after hours activity analysis with improved validation"""
     try:
         plt.style.use('default')
         fig, ax = plt.subplots(1, 1, figsize=(10, 10), dpi=150)
         fig.patch.set_facecolor('white')
         
-        # Initialize hourly activity counter
         hourly_activity = {hour: 0 for hour in range(24)}
         
         valid_conversations = validate_conversation_data(conversations)
         
-        # Count conversations by hour
         for convo in valid_conversations:
             if "messages" not in convo:
                 continue
@@ -1036,8 +973,7 @@ def generate_business_hours_analysis_plot(conversations: List[Dict], chatbot_id:
             ax.set_xticks([])
             ax.set_yticks([])
         else:
-            # Business Hours Analysis
-            business_hours = list(range(9, 17))  # 9 AM to 5 PM
+            business_hours = list(range(9, 17))
             after_hours = list(range(0, 9)) + list(range(17, 24))
             
             business_activity = sum(hourly_activity[hour] for hour in business_hours)
@@ -1047,7 +983,6 @@ def generate_business_hours_analysis_plot(conversations: List[Dict], chatbot_id:
             time_counts = [business_activity, after_hours_activity]
             time_colors = ['#3498DB', '#E67E22']
             
-            # Filter out zero values
             non_zero_data = [(period, count, color) for period, count, color in 
                            zip(time_periods, time_counts, time_colors) if count > 0]
             
@@ -1059,7 +994,6 @@ def generate_business_hours_analysis_plot(conversations: List[Dict], chatbot_id:
                                                   textprops={'fontsize': 12, 'fontweight': 'bold'},
                                                   wedgeprops=dict(width=0.6, edgecolor='white', linewidth=2))
                 
-                # Center text
                 total_count = sum(counts)
                 ax.text(0, 0, f'{total_count:,}\nTotal', ha='center', va='center', 
                         fontsize=14, fontweight='bold', color='#2C3E50')
@@ -1081,7 +1015,6 @@ def generate_business_hours_analysis_plot(conversations: List[Dict], chatbot_id:
 
 @safe_plot_generation
 def generate_conversation_quality_analysis(conversations: List[Dict], chatbot_id: str, period: int):
-    """Quality score distribution analysis with improved calculations"""
     try:
         plt.style.use('default')
         fig, ax = plt.subplots(1, 1, figsize=(12, 8), dpi=150)
@@ -1095,7 +1028,6 @@ def generate_conversation_quality_analysis(conversations: List[Dict], chatbot_id
             ax.set_xticks([])
             ax.set_yticks([])
         else:
-            # Analyze conversation quality metrics
             quality_scores = []
             
             for convo in valid_conversations:
@@ -1110,25 +1042,22 @@ def generate_conversation_quality_analysis(conversations: List[Dict], chatbot_id
                     if not user_messages:
                         continue
 
-                    # Calculate metrics
                     total_messages = len(messages)
                     user_count = len(user_messages)
                     assistant_count = len(assistant_messages)
                     response_ratio = assistant_count / user_count if user_count > 0 else 0
                     
-                    # Check for unanswered queries
                     unanswered_patterns = ["Oops", "I don't know", "I'm not sure", "I can't help"]
                     has_unanswered = any(
                         any(pattern in msg.get("content", "") for pattern in unanswered_patterns)
                         for msg in assistant_messages
                     )
                     
-                    # Quality score (0-100)
                     quality_score = min(100, (
-                        (min(total_messages, 20) / 20 * 30) +  # Conversation depth
-                        (min(response_ratio, 2) / 2 * 25) +    # Response coverage
-                        (30 if not has_unanswered else 0) +    # Resolution success
-                        (15 if total_messages > 5 else total_messages * 3)  # Engagement level
+                        (min(total_messages, 20) / 20 * 30) +
+                        (min(response_ratio, 2) / 2 * 25) +
+                        (30 if not has_unanswered else 0) +
+                        (15 if total_messages > 5 else total_messages * 3)
                     ))
                     
                     quality_scores.append(quality_score)
@@ -1143,7 +1072,6 @@ def generate_conversation_quality_analysis(conversations: List[Dict], chatbot_id
                 ax.set_xticks([])
                 ax.set_yticks([])
             else:
-                # Quality Score Distribution
                 score_ranges = ['Excellent\n(80-100)', 'Good\n(60-79)', 'Fair\n(40-59)', 'Poor\n(0-39)']
                 score_counts = [
                     sum(1 for score in quality_scores if score >= 80),
@@ -1160,7 +1088,6 @@ def generate_conversation_quality_analysis(conversations: List[Dict], chatbot_id
                 ax.spines['top'].set_visible(False)
                 ax.spines['right'].set_visible(False)
                 
-                # Add percentage labels
                 total_convos = len(quality_scores)
                 max_count = max(score_counts) if score_counts else 0
                 for bar, count in zip(bars, score_counts):
@@ -1185,7 +1112,6 @@ def generate_conversation_quality_analysis(conversations: List[Dict], chatbot_id
 
 @safe_plot_generation
 def generate_quality_correlation_plot(conversations: List[Dict], chatbot_id: str, period: int):
-    """Message depth vs quality correlation analysis with improved validation"""
     try:
         plt.style.use('default')
         fig, ax = plt.subplots(1, 1, figsize=(12, 8), dpi=150)
@@ -1245,14 +1171,11 @@ def generate_quality_correlation_plot(conversations: List[Dict], chatbot_id: str
                 ax.set_xticks([])
                 ax.set_yticks([])
             else:
-                # Create scatter plot
                 scatter = ax.scatter(message_depths, quality_scores, alpha=0.6, s=60, 
                            c=quality_scores, cmap='RdYlGn', edgecolors='white', linewidth=1)
                 
-                # Add colorbar
                 plt.colorbar(scatter, ax=ax, label='Quality Score')
                 
-                # Add trend line
                 if len(message_depths) > 2:
                     try:
                         z = np.polyfit(message_depths, quality_scores, 1)
@@ -1268,7 +1191,6 @@ def generate_quality_correlation_plot(conversations: List[Dict], chatbot_id: str
                 ax.spines['top'].set_visible(False)
                 ax.spines['right'].set_visible(False)
                 
-                # Add correlation coefficient
                 try:
                     correlation = np.corrcoef(message_depths, quality_scores)[0, 1]
                     if not np.isnan(correlation):
@@ -1292,7 +1214,6 @@ def generate_quality_correlation_plot(conversations: List[Dict], chatbot_id: str
 
 @safe_plot_generation
 def generate_resolution_analysis_plot(conversations: List[Dict], chatbot_id: str, period: int):
-    """Problem resolution rate analysis with improved validation"""
     try:
         plt.style.use('default')
         fig, ax = plt.subplots(1, 1, figsize=(10, 10), dpi=150)
@@ -1320,7 +1241,6 @@ def generate_resolution_analysis_plot(conversations: List[Dict], chatbot_id: str
                     if not user_messages:
                         continue
 
-                    # Check for unanswered queries
                     unanswered_patterns = ["Oops", "I don't know", "I'm not sure", "I can't help"]
                     has_unanswered = any(
                         any(pattern in msg.get("content", "") for pattern in unanswered_patterns)
@@ -1346,7 +1266,6 @@ def generate_resolution_analysis_plot(conversations: List[Dict], chatbot_id: str
                     resolution_labels = ['Resolved', 'Unresolved']
                     resolution_colors = ['#27AE60', '#E74C3C']
                     
-                    # Filter out zero values
                     non_zero_data = [(label, count, color) for label, count, color in 
                                    zip(resolution_labels, resolution_data, resolution_colors) if count > 0]
                     
@@ -1358,7 +1277,6 @@ def generate_resolution_analysis_plot(conversations: List[Dict], chatbot_id: str
                                                           startangle=90, textprops={'fontsize': 12, 'fontweight': 'bold'},
                                                           wedgeprops=dict(width=0.6, edgecolor='white', linewidth=2))
                         
-                        # Center text
                         resolution_rate = (resolved_count / (resolved_count + unresolved_count)) * 100
                         ax.text(0, 0, f'{resolution_rate:.1f}%\nResolution\nRate', ha='center', va='center', 
                                 fontsize=14, fontweight='bold', color='#2C3E50')
@@ -1380,7 +1298,6 @@ def generate_resolution_analysis_plot(conversations: List[Dict], chatbot_id: str
 
 @safe_plot_generation
 def generate_user_engagement_funnel(conversations: List[Dict], chatbot_id: str, period: int):
-    """User engagement funnel analysis with improved validation"""
     try:
         plt.style.use('default')
         fig, ax = plt.subplots(1, 1, figsize=(14, 10), dpi=150)
@@ -1394,7 +1311,6 @@ def generate_user_engagement_funnel(conversations: List[Dict], chatbot_id: str, 
             ax.set_xticks([])
             ax.set_yticks([])
         else:
-            # Analyze engagement patterns
             engagement_stages = {
                 "Initial Contact": 0,
                 "Engaged (2-4 msgs)": 0,
@@ -1419,7 +1335,6 @@ def generate_user_engagement_funnel(conversations: List[Dict], chatbot_id: str, 
                     
                     user_message_counts.append(user_count)
                     
-                    # Categorize engagement
                     if user_count >= 1:
                         engagement_stages["Initial Contact"] += 1
                     if 2 <= user_count <= 4:
@@ -1441,17 +1356,14 @@ def generate_user_engagement_funnel(conversations: List[Dict], chatbot_id: str, 
                 ax.set_xticks([])
                 ax.set_yticks([])
             else:
-                # Engagement Funnel
                 stages = list(engagement_stages.keys())
                 values = list(engagement_stages.values())
                 colors = ['#1ABC9C', '#3498DB', '#9B59B6', '#E67E22', '#E74C3C']
                 
-                # Create horizontal funnel
-                y_positions = np.arange(len(stages))[::-1]  # Reverse for funnel effect
+                y_positions = np.arange(len(stages))[::-1]
                 bars = ax.barh(y_positions, values, color=colors, alpha=0.8, 
                               edgecolor='white', linewidth=2)
                 
-                # Add labels with percentages
                 initial_users = values[0] if values else 1
                 max_value = max(values) if values else 0
                 for i, (bar, value) in enumerate(zip(bars, values)):
@@ -1481,7 +1393,6 @@ def generate_user_engagement_funnel(conversations: List[Dict], chatbot_id: str, 
 
 @safe_plot_generation
 def generate_user_message_distribution(conversations: List[Dict], chatbot_id: str, period: int):
-    """User message count distribution with improved validation"""
     try:
         plt.style.use('default')
         fig, ax = plt.subplots(1, 1, figsize=(12, 8), dpi=150)
@@ -1519,14 +1430,12 @@ def generate_user_message_distribution(conversations: List[Dict], chatbot_id: st
                 ax.set_xticks([])
                 ax.set_yticks([])
             else:
-                # Create histogram
                 max_messages = max(user_message_counts)
                 bins = min(20, max_messages) if max_messages > 0 else 10
                 
                 ax.hist(user_message_counts, bins=bins, 
                         color='#3498DB', alpha=0.7, edgecolor='white', linewidth=1)
                 
-                # Calculate and display statistics
                 avg_messages = np.mean(user_message_counts)
                 median_messages = np.median(user_message_counts)
                 
@@ -1556,7 +1465,6 @@ def generate_user_message_distribution(conversations: List[Dict], chatbot_id: st
 
 @safe_plot_generation
 def generate_engagement_level_distribution(conversations: List[Dict], chatbot_id: str, period: int):
-    """Engagement level pie chart with improved validation"""
     try:
         plt.style.use('default')
         fig, ax = plt.subplots(1, 1, figsize=(10, 10), dpi=150)
@@ -1590,7 +1498,6 @@ def generate_engagement_level_distribution(conversations: List[Dict], chatbot_id
                     if user_count == 0:
                         continue
                     
-                    # Categorize engagement
                     if user_count >= 1:
                         engagement_stages["Initial Contact"] += 1
                     if 2 <= user_count <= 4:
@@ -1606,7 +1513,6 @@ def generate_engagement_level_distribution(conversations: List[Dict], chatbot_id
                     logger.debug(f"Error processing engagement level: {e}")
                     continue
             
-            # Filter out zero values for pie chart
             non_zero_engagement = [(stage, value) for stage, value in engagement_stages.items() if value > 0]
             
             if non_zero_engagement:
@@ -1621,7 +1527,6 @@ def generate_engagement_level_distribution(conversations: List[Dict], chatbot_id
                                                   textprops={'fontsize': 10, 'fontweight': 'bold'},
                                                   wedgeprops=dict(width=0.7, edgecolor='white', linewidth=2))
                 
-                # Center text
                 total_users = sum(pie_values)
                 ax.text(0, 0, f'{total_users:,}\nUsers', ha='center', va='center', 
                         fontsize=14, fontweight='bold', color='#2C3E50')
@@ -1642,9 +1547,6 @@ def generate_engagement_level_distribution(conversations: List[Dict], chatbot_id
 
 
 def get_conversation_insights(chatbot_id: str, period: int) -> Optional[Dict]:
-    """
-    Get conversation insights with improved error handling and data validation
-    """
     try:
         logger.info(f"Generating insights for chatbot {chatbot_id}, period: {period} days")
         
@@ -1655,7 +1557,6 @@ def get_conversation_insights(chatbot_id: str, period: int) -> Optional[Dict]:
             logger.warning(f"No conversations found for chatbot {chatbot_id}")
             return None
 
-        # Validate conversation data
         all_conversations = validate_conversation_data(all_conversations)
         
         filtered_conversations = []
@@ -1681,7 +1582,6 @@ def get_conversation_insights(chatbot_id: str, period: int) -> Optional[Dict]:
         conversations = filtered_conversations
         logger.info(f"Processing {len(conversations)} conversations for insights")
 
-        # Extract messages safely
         user_queries = []
         assistant_responses = []
 
@@ -1709,7 +1609,6 @@ def get_conversation_insights(chatbot_id: str, period: int) -> Optional[Dict]:
 
         logger.info(f"Extracted {len(user_queries)} user queries and {len(assistant_responses)} assistant responses")
 
-        # Find unanswered queries
         unanswered_queries = find_unanswered_queries(conversations)
         unanswered_query_counts = dict(Counter(unanswered_queries).most_common())
 
@@ -1721,51 +1620,41 @@ def get_conversation_insights(chatbot_id: str, period: int) -> Optional[Dict]:
         top_user_queries_dict = dict(Counter(user_queries).most_common(10))
         top_user_queries_json = {"queries": top_user_queries_dict}
 
-        # Clean existing plots first to ensure fresh generation
         clean_existing_plots(chatbot_id, period)
 
-        # Generate all individual plots (16 total) with improved error handling
         plot_results = {}
         
-        # Message Analysis (4 plots)
         logger.info("Generating message analysis plots...")
         plot_results['message_distribution'] = generate_message_distribution(user_queries, assistant_responses, chatbot_id, period)
         plot_results['message_length'] = generate_message_length_analysis(user_queries, assistant_responses, chatbot_id, period)
         plot_results['message_complexity'] = generate_message_complexity_analysis(user_queries, assistant_responses, chatbot_id, period)
         plot_results['performance_metrics'] = generate_key_performance_metrics(user_queries, assistant_responses, chatbot_id, period)
         
-        # Sentiment Analysis (2 plots)
         logger.info("Generating sentiment analysis plots...")
         plot_results['sentiment_analysis'] = generate_sentiment_analysis(user_queries, chatbot_id, period)
         plot_results['sentiment_scores'] = generate_sentiment_score_distribution(user_queries, chatbot_id, period)
         
-        # Chat Volume (1 plot)
         logger.info("Generating chat volume plot...")
         plot_results['chat_volume'] = generate_chat_volume_plot(conversations, chatbot_id, period)
         
-        # Peak Hours Activity (3 plots)
         logger.info("Generating activity pattern plots...")
         plot_results['peak_hours'] = generate_peak_hours_activity_plot(conversations, chatbot_id, period)
         plot_results['day_of_week'] = generate_day_of_week_activity_plot(conversations, chatbot_id, period)
         plot_results['business_hours'] = generate_business_hours_analysis_plot(conversations, chatbot_id, period)
         
-        # Quality Analysis (3 plots)
         logger.info("Generating quality analysis plots...")
         plot_results['quality_analysis'] = generate_conversation_quality_analysis(conversations, chatbot_id, period)
         plot_results['quality_correlation'] = generate_quality_correlation_plot(conversations, chatbot_id, period)
         plot_results['resolution_analysis'] = generate_resolution_analysis_plot(conversations, chatbot_id, period)
         
-        # User Engagement (3 plots)
         logger.info("Generating engagement analysis plots...")
         plot_results['engagement_funnel'] = generate_user_engagement_funnel(conversations, chatbot_id, period)
         plot_results['message_distribution_users'] = generate_user_message_distribution(conversations, chatbot_id, period)
         plot_results['engagement_levels'] = generate_engagement_level_distribution(conversations, chatbot_id, period)
 
-        # Log plot generation results
         successful_plots = sum(1 for result in plot_results.values() if result)
         logger.info(f"Successfully generated {successful_plots}/{len(plot_results)} plots")
 
-        # Prepare insights data
         current_date = datetime.now().date().isoformat()
         insights_data = {
             "chatbot_id": chatbot_id,
@@ -1780,9 +1669,7 @@ def get_conversation_insights(chatbot_id: str, period: int) -> Optional[Dict]:
             "plot_generation_success": plot_results
         }
 
-        # Database operations with retry
         try:
-            # Check if a row with the same chatbot_id, period_range, and date_of_convo already exists
             existing_record = supabase.table('insights') \
                 .select('id') \
                 .eq('chatbot_id', chatbot_id) \
@@ -1791,7 +1678,6 @@ def get_conversation_insights(chatbot_id: str, period: int) -> Optional[Dict]:
                 .execute()
 
             if existing_record.data:
-                # Update existing record
                 record_id = existing_record.data[0]['id']
                 supabase.table('insights') \
                     .update(insights_data) \
@@ -1799,13 +1685,11 @@ def get_conversation_insights(chatbot_id: str, period: int) -> Optional[Dict]:
                     .execute()
                 logger.info(f"Updated existing insights record for chatbot {chatbot_id}, period {period}")
             else:
-                # Insert new record
                 supabase.table('insights').insert(insights_data).execute()
                 logger.info(f"Inserted new insights record for chatbot {chatbot_id}, period {period}")
 
         except Exception as e:
             logger.error(f"Error saving insights to database: {e}")
-            # Continue execution even if database save fails
 
         return insights_data
         
@@ -1816,7 +1700,6 @@ def get_conversation_insights(chatbot_id: str, period: int) -> Optional[Dict]:
 
 @retry_on_failure()
 def update_tokens():
-    """Update token counts with improved error handling"""
     try:
         logger.info("Starting token update process")
         chatbot_ids = get_distinct_chatbot_ids()
@@ -1830,7 +1713,6 @@ def update_tokens():
         
         for chatbot_id in chatbot_ids:
             try:
-                # Get today's conversations for this chatbot
                 response = supabase.table('testing_zaps2') \
                     .select('input_tokens, output_tokens') \
                     .eq('chatbot_id', chatbot_id) \
@@ -1841,7 +1723,6 @@ def update_tokens():
                     logger.debug(f"No conversations found for chatbot {chatbot_id} today")
                     continue
 
-                # Calculate total tokens with safe conversion
                 total_input_tokens = 0
                 total_output_tokens = 0
                 
@@ -1850,7 +1731,6 @@ def update_tokens():
                         input_tokens = row.get('input_tokens')
                         output_tokens = row.get('output_tokens')
                         
-                        # Safe conversion to int
                         if input_tokens is not None:
                             total_input_tokens += int(input_tokens)
                         if output_tokens is not None:
@@ -1864,14 +1744,12 @@ def update_tokens():
                     logger.debug(f"No token usage for chatbot {chatbot_id} today")
                     continue
 
-                # Check if chatbot exists in chat_tokens
                 existing_tokens = supabase.table('chat_tokens') \
                     .select('input_tokens, output_tokens') \
                     .eq('chatbot_id', chatbot_id) \
                     .execute()
 
                 if existing_tokens.data:
-                    # Update existing record with safe conversion
                     try:
                         current_input = int(existing_tokens.data[0].get('input_tokens') or 0)
                         current_output = int(existing_tokens.data[0].get('output_tokens') or 0)
@@ -1888,7 +1766,6 @@ def update_tokens():
                         logger.error(f"Error updating existing tokens for chatbot {chatbot_id}: {e}")
                         continue
                 else:
-                    # Create new record
                     supabase.table('chat_tokens') \
                         .insert({
                             'chatbot_id': chatbot_id,
@@ -1912,7 +1789,6 @@ def update_tokens():
 
 
 def process_chatbot_data():
-    """Process chatbot data with improved error handling and progress tracking"""
     try:
         logger.info(f"Starting data processing at {datetime.now()}")
         chatbot_ids = get_distinct_chatbot_ids()
@@ -1923,7 +1799,7 @@ def process_chatbot_data():
             
         logger.info(f"Found {len(chatbot_ids)} distinct chatbot IDs")
 
-        periods = [0, 2, 7, 10]  # Analysis periods in days
+        periods = [0, 2, 7, 10]
         total_tasks = len(chatbot_ids) * len(periods)
         completed_tasks = 0
         successful_tasks = 0
@@ -1932,7 +1808,6 @@ def process_chatbot_data():
             try:
                 logger.info(f"Processing chatbot ID: {chatbot_id}")
 
-                # Get conversation insights for different periods
                 for period in periods:
                     try:
                         logger.info(f"Analyzing {period}-day period for {chatbot_id}")
@@ -1951,7 +1826,6 @@ def process_chatbot_data():
                     finally:
                         completed_tasks += 1
                         
-                    # Progress logging
                     progress = (completed_tasks / total_tasks) * 100
                     logger.info(f"Progress: {completed_tasks}/{total_tasks} ({progress:.1f}%)")
 
@@ -1969,18 +1843,14 @@ def process_chatbot_data():
 
 @retry_on_failure()
 def update_job_status(job_statuses: List[Dict]):
-    """Update job status with improved error handling"""
     try:
-        # Get current timestamp
         current_time = datetime.now().isoformat()
 
-        # Create status entry
         status_data = {
             "created_at": current_time,
             "job_status": job_statuses
         }
 
-        # Update insights_schedule table
         supabase.table('insights_schedule').insert(status_data).execute()
         logger.info("Job statuses updated successfully")
         
@@ -1990,7 +1860,6 @@ def update_job_status(job_statuses: List[Dict]):
 
 
 if __name__ == "__main__":
-    # Set up matplotlib for non-interactive use
     plt.ioff()
     
     job_statuses = []
@@ -1999,7 +1868,6 @@ if __name__ == "__main__":
     try:
         logger.info("Starting analytics job execution")
         
-        # Run token update
         try:
             logger.info("Starting token update job")
             update_tokens()
@@ -2021,7 +1889,6 @@ if __name__ == "__main__":
             })
             overall_success = False
 
-        # Run data processing
         try:
             logger.info("Starting data processing job")
             process_chatbot_data()
@@ -2043,13 +1910,11 @@ if __name__ == "__main__":
             })
             overall_success = False
 
-        # Update job statuses in insights_schedule table
         try:
             update_job_status(job_statuses)
         except Exception as e:
             logger.error(f"Failed to update job statuses: {e}")
 
-        # Final status
         if overall_success:
             logger.info("All analytics jobs completed successfully")
         else:
@@ -2057,7 +1922,6 @@ if __name__ == "__main__":
 
     except Exception as e:
         logger.error(f"Critical error in main execution: {e}")
-        # Record overall execution failure
         job_statuses.append({
             "job_name": "main_execution",
             "status": "failed",
@@ -2073,6 +1937,5 @@ if __name__ == "__main__":
         sys.exit(1)
     
     finally:
-        # Ensure all matplotlib resources are cleaned up
         plt.close('all')
         logger.info("Analytics execution completed")
