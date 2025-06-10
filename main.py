@@ -216,7 +216,7 @@ def generate_chat_volume_plot(conversations, chatbot_id, period):
                     monthly_counts[month_key] = monthly_counts.get(month_key, 0) + 1
                 except Exception as e:
                     continue
-            
+
             if not monthly_counts:
                 plt.figure(figsize=(12, 6))
                 plt.text(0.5, 0.5, 'No conversation data available', 
@@ -225,7 +225,7 @@ def generate_chat_volume_plot(conversations, chatbot_id, period):
             else:
                 dates = sorted(monthly_counts.keys())
                 counts = [monthly_counts[date] for date in dates]
-                
+
                 plt.figure(figsize=(14, 8), dpi=150)
                 plt.plot(dates, counts, marker='o', linewidth=2, markersize=6, color='#2E86C1')
                 plt.xlabel('Month', fontsize=14)
@@ -238,12 +238,12 @@ def generate_chat_volume_plot(conversations, chatbot_id, period):
             # For specific periods, show daily data
             current_date = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
             daily_counts = {}
-            
+
             # Initialize all days in the period with 0 count
             for i in range(period):
                 date_key = (current_date - timedelta(days=i)).strftime("%Y-%m-%d")
                 daily_counts[date_key] = 0
-            
+
             # Count conversations for each day
             for convo in conversations:
                 try:
@@ -254,14 +254,14 @@ def generate_chat_volume_plot(conversations, chatbot_id, period):
                         daily_counts[date_key] += 1
                 except Exception as e:
                     continue
-            
+
             # Sort dates and get corresponding counts
             dates = sorted(daily_counts.keys())
             counts = [daily_counts[date] for date in dates]
-            
+
             # Format dates for display
             formatted_dates = [datetime.strptime(date, "%Y-%m-%d").strftime("%m/%d") for date in dates]
-            
+
             plt.figure(figsize=(14, 8), dpi=150)
             if sum(counts) == 0:
                 plt.text(0.5, 0.5, f'No conversations in the last {period} days', 
@@ -275,19 +275,19 @@ def generate_chat_volume_plot(conversations, chatbot_id, period):
                 plt.xticks(rotation=45)
                 plt.grid(True, alpha=0.3)
                 plt.tight_layout()
-                
+
                 # Add trend information
                 if len(counts) > 1:
                     # Calculate percentage change from first to last day
                     first_count = counts[0] if counts[0] > 0 else 1
                     last_count = counts[-1]
                     pct_change = ((last_count - first_count) / first_count) * 100
-                    
+
                     trend_text = f"Trend: {pct_change:+.1f}% change"
                     plt.text(0.02, 0.98, trend_text, transform=plt.gca().transAxes, 
                             fontsize=12, verticalalignment='top',
                             bbox=dict(boxstyle="round,pad=0.3", facecolor="lightblue", alpha=0.7))
-        
+
         save_plot_to_supabase(plt, "Chat volume plot", chatbot_id, period)
     except Exception as e:
         print(f"Error generating chat volume plot: {e}")
@@ -299,12 +299,12 @@ def generate_peak_hours_activity_plot(conversations, chatbot_id, period):
     try:
         # Initialize 24-hour activity counter
         hourly_activity = {hour: 0 for hour in range(24)}
-        
+
         # Count conversations by hour
         for convo in conversations:
             if "messages" not in convo:
                 continue
-                
+
             messages = convo["messages"]
             for message in messages:
                 if message.get("role") == "user":
@@ -318,13 +318,13 @@ def generate_peak_hours_activity_plot(conversations, chatbot_id, period):
                         break  # Only count first user message per conversation
                     except Exception as e:
                         continue
-        
+
         # Create the plot
         hours = list(range(24))
         activity_counts = [hourly_activity[hour] for hour in hours]
-        
+
         plt.figure(figsize=(15, 8), dpi=150)
-        
+
         if sum(activity_counts) == 0:
             plt.text(0.5, 0.5, 'No activity data available for peak hours analysis', 
                     horizontalalignment='center', fontsize=16)
@@ -332,21 +332,24 @@ def generate_peak_hours_activity_plot(conversations, chatbot_id, period):
         else:
             # Create bar chart
             bars = plt.bar(hours, activity_counts, color='#3498db', alpha=0.7, edgecolor='#2980b9')
-            
+
             # Highlight peak hours
             peak_hour = hours[activity_counts.index(max(activity_counts))]
             bars[peak_hour].set_color('#e74c3c')
-            
+
             # Format the plot
             plt.xlabel('Hour of Day (24-hour format)', fontsize=14)
             plt.ylabel('Number of Conversations', fontsize=14)
             plt.title(f'Peak Hours Activity Analysis ({period} days)' if period > 0 else 'Peak Hours Activity Analysis (All Time)', 
                      fontsize=18, pad=20)
-            
-            # Set x-axis ticks and labels
+
+            # Set x-axis ticks and labels with better spacing
             plt.xticks(range(0, 24, 2), [f'{h:02d}:00' for h in range(0, 24, 2)], rotation=45)
             plt.grid(True, alpha=0.3, axis='y')
-            
+
+            # Adjust y-axis to give more space for annotations
+            plt.ylim(0, max(activity_counts) * 1.3)
+
             # Add peak hour annotation
             peak_count = max(activity_counts)
             plt.annotate(f'Peak Hour: {peak_hour:02d}:00\n({peak_count} conversations)', 
@@ -355,21 +358,21 @@ def generate_peak_hours_activity_plot(conversations, chatbot_id, period):
                         arrowprops=dict(arrowstyle='->', color='red', lw=1.5),
                         fontsize=12, ha='center',
                         bbox=dict(boxstyle="round,pad=0.3", facecolor="yellow", alpha=0.7))
-            
+
             # Add insights
             total_conversations = sum(activity_counts)
             business_hours_activity = sum(activity_counts[9:17])  # 9 AM to 5 PM
             business_hours_percentage = (business_hours_activity / total_conversations * 100) if total_conversations > 0 else 0
-            
+
             insights_text = f"Business Hours (9AM-5PM): {business_hours_percentage:.1f}% of activity"
             plt.text(0.02, 0.98, insights_text, transform=plt.gca().transAxes, 
                     fontsize=11, verticalalignment='top',
                     bbox=dict(boxstyle="round,pad=0.3", facecolor="lightgreen", alpha=0.7))
-            
+
             plt.tight_layout()
-        
+
         save_plot_to_supabase(plt, "Peak hours activity plot", chatbot_id, period)
-        
+
     except Exception as e:
         print(f"Error generating peak hours activity plot: {e}")
     finally:
@@ -655,13 +658,13 @@ def update_job_status(job_statuses):
     try:
         # Get current timestamp
         current_time = datetime.now().isoformat()
-        
+
         # Create status entry
         status_data = {
             "created_at": current_time,
             "job_status": job_statuses
         }
-        
+
         # Update insights_schedule table
         supabase.table('insights_schedule').insert(status_data).execute()
         print("Job statuses updated successfully")
