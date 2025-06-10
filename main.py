@@ -212,9 +212,9 @@ def generate_sentiment_analysis(user_queries, chatbot_id, period):
             plt.text(0, -0.15, 'QUERIES', ha='center', va='center', 
                     fontsize=14, fontweight='bold', color='#7F8C8D')
             
-            # Enhanced title - single clean title
+            # Enhanced title - positioned higher to avoid overlap
             plt.title('User Query Sentiment Analysis', 
-                     fontsize=24, fontweight='bold', y=0.95, color='#2C3E50', pad=30)
+                     fontsize=22, fontweight='bold', y=1.08, color='#2C3E50', pad=20)
             
             # Create detailed legend positioned better
             legend_elements = []
@@ -244,7 +244,7 @@ def generate_sentiment_analysis(user_queries, chatbot_id, period):
                     bbox=dict(boxstyle="round,pad=0.6", facecolor="#ECF0F1", alpha=0.9, edgecolor='#BDC3C7', linewidth=1))
             
             plt.axis('equal')
-            plt.subplots_adjust(left=0.1, right=0.75, top=0.9, bottom=0.1)
+            plt.subplots_adjust(left=0.1, right=0.75, top=0.85, bottom=0.1)
             
         else:
             plt.figure(figsize=(14, 10), dpi=150)
