@@ -169,82 +169,53 @@ def generate_sentiment_analysis(user_queries, chatbot_id, period):
             else:
                 sentiments["Neutral"] += 1
 
-        # Create enhanced donut chart if we have data
+        # Create horizontal bar chart if we have data
         if sum(sentiments.values()) > 0:
-            plt.figure(figsize=(16, 12), dpi=150)
+            plt.figure(figsize=(14, 8), dpi=150)
             
-            # Reorder for better visual flow: Positive, Neutral, Negative
+            # Prepare data for horizontal bar chart
             ordered_labels = ["Positive", "Neutral", "Negative"]
             ordered_values = [sentiments[label] for label in ordered_labels]
             colors = ["#27AE60", "#F39C12", "#E74C3C"]  # Enhanced colors
-            
-            # Create donut chart with enhanced styling
-            wedges, texts, autotexts = plt.pie(
-                ordered_values, 
-                labels=ordered_labels, 
-                colors=colors,
-                autopct=lambda pct: f'{pct:.1f}%\n({int(pct/100*sum(ordered_values))})',
-                startangle=90,
-                pctdistance=0.75,
-                labeldistance=1.2,
-                textprops={'fontsize': 14, 'fontweight': 'bold'},
-                wedgeprops=dict(width=0.5, edgecolor='white', linewidth=3)
-            )
-            
-            # Style the percentage labels
-            for autotext in autotexts:
-                autotext.set_color('white')
-                autotext.set_fontweight('bold')
-                autotext.set_fontsize(13)
-                autotext.set_bbox(dict(boxstyle="round,pad=0.3", facecolor='black', alpha=0.7))
-            
-            # Style the category labels
-            for text in texts:
-                text.set_fontsize(16)
-                text.set_fontweight('bold')
-            
-            # Add center content
             total_queries = sum(ordered_values)
-            plt.text(0, 0.15, 'TOTAL', ha='center', va='center', 
-                    fontsize=18, fontweight='bold', color='#2C3E50')
-            plt.text(0, 0, f'{total_queries:,}', ha='center', va='center', 
-                    fontsize=28, fontweight='bold', color='#2C3E50')
-            plt.text(0, -0.15, 'QUERIES', ha='center', va='center', 
-                    fontsize=14, fontweight='bold', color='#7F8C8D')
             
-            # Enhanced title - positioned higher to avoid overlap
-            plt.title('User Query Sentiment Analysis', 
-                     fontsize=22, fontweight='bold', y=1.08, color='#2C3E50', pad=20)
+            # Create horizontal bar chart
+            bars = plt.barh(ordered_labels, ordered_values, color=colors, alpha=0.8, edgecolor='white', linewidth=2)
             
-            # Create detailed legend positioned better
-            legend_elements = []
-            for i, (label, value) in enumerate(zip(ordered_labels, ordered_values)):
+            # Add value labels on bars
+            for i, (bar, value) in enumerate(zip(bars, ordered_values)):
                 percentage = (value / total_queries) * 100
-                legend_elements.append(f'{label}: {value:,} ({percentage:.1f}%)')
+                plt.text(bar.get_width() + max(ordered_values) * 0.01, bar.get_y() + bar.get_height()/2, 
+                        f'{value:,} ({percentage:.1f}%)', 
+                        va='center', fontsize=12, fontweight='bold', color='#2C3E50')
             
-            plt.legend(wedges, legend_elements, 
-                      title="Sentiment Breakdown", 
-                      loc="center left", 
-                      bbox_to_anchor=(1.05, 0.5),
-                      fontsize=13, 
-                      title_fontsize=16,
-                      frameon=True,
-                      fancybox=True,
-                      shadow=True)
+            # Styling
+            plt.xlabel('Number of Queries', fontsize=14, fontweight='bold', color='#2C3E50')
+            plt.ylabel('Sentiment Category', fontsize=14, fontweight='bold', color='#2C3E50')
+            plt.title('User Query Sentiment Analysis', fontsize=20, fontweight='bold', color='#2C3E50', pad=20)
             
-            # Add insights box in a better position
+            # Add grid for better readability
+            plt.grid(axis='x', alpha=0.3, linestyle='--')
+            
+            # Set x-axis limit to provide space for labels
+            plt.xlim(0, max(ordered_values) * 1.25)
+            
+            # Add total queries text box
+            total_text = f"Total Analyzed: {total_queries:,} queries"
+            plt.text(0.02, 0.98, total_text, transform=plt.gca().transAxes, 
+                    fontsize=12, fontweight='bold', verticalalignment='top',
+                    bbox=dict(boxstyle="round,pad=0.4", facecolor="#ECF0F1", alpha=0.9, edgecolor='#BDC3C7', linewidth=1))
+            
+            # Add insights
             dominant_sentiment = ordered_labels[ordered_values.index(max(ordered_values))]
             dominant_percentage = (max(ordered_values) / total_queries) * 100
             
-            insight_text = f"Key Insights:\n• Dominant sentiment: {dominant_sentiment} ({dominant_percentage:.1f}%)\n• Total analyzed: {total_queries:,} queries\n• Distribution shows emotional tone trends"
-            plt.text(1.05, 0.15, insight_text,
-                    transform=plt.gca().transAxes,
-                    fontsize=12,
-                    verticalalignment='top',
-                    bbox=dict(boxstyle="round,pad=0.6", facecolor="#ECF0F1", alpha=0.9, edgecolor='#BDC3C7', linewidth=1))
+            insight_text = f"Dominant Sentiment: {dominant_sentiment} ({dominant_percentage:.1f}%)"
+            plt.text(0.02, 0.02, insight_text, transform=plt.gca().transAxes, 
+                    fontsize=11, fontweight='bold', verticalalignment='bottom',
+                    bbox=dict(boxstyle="round,pad=0.4", facecolor="#D5E8D4", alpha=0.9, edgecolor='#27AE60', linewidth=1))
             
-            plt.axis('equal')
-            plt.subplots_adjust(left=0.1, right=0.75, top=0.85, bottom=0.1)
+            plt.tight_layout()
             
         else:
             plt.figure(figsize=(14, 10), dpi=150)
