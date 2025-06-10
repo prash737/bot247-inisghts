@@ -138,8 +138,9 @@ def generate_message_distribution(user_queries, assistant_responses, chatbot_id,
             save_plot_to_supabase(plt, "Message distribution plot", chatbot_id, period)
             return
 
-        fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(20, 16), dpi=150)
-        fig.suptitle('Advanced Conversation Flow & Message Analysis', fontsize=24, fontweight='bold', y=0.98)
+        fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(24, 18), dpi=150)
+        fig.suptitle('Advanced Conversation Flow & Message Analysis', fontsize=26, fontweight='bold', y=0.96)
+        plt.subplots_adjust(left=0.08, right=0.95, top=0.90, bottom=0.08, hspace=0.35, wspace=0.25)
 
         # 1. Enhanced Message Distribution (top-left)
         total_queries = len(user_queries)
@@ -154,16 +155,16 @@ def generate_message_distribution(user_queries, assistant_responses, chatbot_id,
         colors = ['#FF6B6B', '#4ECDC4']
         
         wedges, texts, autotexts = ax1.pie(sizes, labels=labels, colors=colors, autopct='%1.1f%%',
-                                          startangle=90, textprops={'fontsize': 12, 'fontweight': 'bold'},
-                                          wedgeprops=dict(width=0.6, edgecolor='white', linewidth=2))
+                                          startangle=90, textprops={'fontsize': 14, 'fontweight': 'bold'},
+                                          wedgeprops=dict(width=0.6, edgecolor='white', linewidth=3))
         
         # Add center information
         ax1.text(0, 0.1, f'{total_queries + total_responses:,}', ha='center', va='center', 
-                fontsize=18, fontweight='bold', color='#2C3E50')
+                fontsize=20, fontweight='bold', color='#2C3E50')
         ax1.text(0, -0.1, 'Total Messages', ha='center', va='center', 
-                fontsize=12, fontweight='bold', color='#7F8C8D')
+                fontsize=14, fontweight='bold', color='#7F8C8D')
         
-        ax1.set_title('Message Volume Distribution', fontsize=16, fontweight='bold', pad=20)
+        ax1.set_title('Message Volume Distribution', fontsize=18, fontweight='bold', pad=25)
         
         # 2. Message Length Analysis (top-right)
         if user_queries and assistant_responses:
@@ -645,9 +646,10 @@ def generate_conversation_quality_analysis(conversations, chatbot_id, period):
             save_plot_to_supabase(plt, "Conversation quality analysis plot", chatbot_id, period)
             return
 
-        # Create comprehensive quality analysis dashboard
-        fig = plt.figure(figsize=(20, 16), dpi=150)
-        gs = fig.add_gridspec(3, 3, hspace=0.3, wspace=0.3)
+        # Create comprehensive quality analysis dashboard with improved spacing
+        fig = plt.figure(figsize=(24, 20), dpi=150)
+        gs = fig.add_gridspec(3, 3, hspace=0.4, wspace=0.35, 
+                             left=0.08, right=0.95, top=0.92, bottom=0.08)
 
         # 1. Quality Score Distribution (top-left)
         ax1 = fig.add_subplot(gs[0, 0])
@@ -799,36 +801,36 @@ def generate_conversation_quality_analysis(conversations, chatbot_id, period):
             grade_color = "#E74C3C"
 
         insights_text = f"""
-🎯 CONVERSATION QUALITY ANALYSIS REPORT
+CONVERSATION QUALITY ANALYSIS REPORT
 
-📊 Overall Quality Grade: {overall_grade} (Score: {avg_quality_score:.1f}/100)
+Overall Quality Grade: {overall_grade} (Score: {avg_quality_score:.1f}/100)
 
-📈 Key Performance Indicators:
+Key Performance Indicators:
    • Average Messages per Conversation: {avg_total_messages:.1f}
    • Response Effectiveness Ratio: {avg_response_ratio:.2f}:1
    • Question Engagement Rate: {question_engagement_rate:.1f}%
    • Problem Resolution Rate: {resolution_percentage:.1f}%
    • Total Word Count Processed: {total_word_count:,} words
 
-🔍 Quality Breakdown:
+Quality Breakdown:
    • Excellent Conversations: {excellent} ({excellent/len(conversation_metrics)*100:.1f}%)
    • Good Conversations: {good} ({good/len(conversation_metrics)*100:.1f}%)
    • Fair Conversations: {fair} ({fair/len(conversation_metrics)*100:.1f}%)
    • Poor Conversations: {poor} ({poor/len(conversation_metrics)*100:.1f}%)
 
-💡 Strategic Recommendations:
+Strategic Recommendations:
    • {"Focus on improving response depth and engagement" if avg_quality_score < 70 else "Maintain current high-quality standards"}
    • {"Reduce unanswered queries to improve resolution rate" if resolution_percentage < 90 else "Excellent problem resolution performance"}
    • {"Encourage more question-based interactions" if question_engagement_rate < 60 else "Strong question engagement levels"}
         """
 
-        ax7.text(0.02, 0.98, insights_text, transform=ax7.transAxes, fontsize=11,
-                verticalalignment='top', fontfamily='monospace',
-                bbox=dict(boxstyle="round,pad=0.8", facecolor=grade_color, alpha=0.1, 
+        ax7.text(0.02, 0.98, insights_text, transform=ax7.transAxes, fontsize=12,
+                verticalalignment='top', fontfamily='DejaVu Sans',
+                bbox=dict(boxstyle="round,pad=1.0", facecolor=grade_color, alpha=0.15, 
                          edgecolor=grade_color, linewidth=2))
 
         fig.suptitle(f'Conversation Quality Analysis Dashboard ({period} days)' if period > 0 else 'Conversation Quality Analysis Dashboard (All Time)', 
-                     fontsize=24, fontweight='bold', y=0.98)
+                     fontsize=28, fontweight='bold', y=0.96, pad=20)
 
         save_plot_to_supabase(plt, "Conversation quality analysis plot", chatbot_id, period)
 
@@ -898,9 +900,10 @@ def generate_user_engagement_funnel(conversations, chatbot_id, period):
             save_plot_to_supabase(plt, "User engagement funnel plot", chatbot_id, period)
             return
 
-        # Create comprehensive engagement dashboard
-        fig = plt.figure(figsize=(20, 16), dpi=150)
-        gs = fig.add_gridspec(3, 3, hspace=0.3, wspace=0.3)
+        # Create comprehensive engagement dashboard with better spacing
+        fig = plt.figure(figsize=(24, 20), dpi=150)
+        gs = fig.add_gridspec(3, 3, hspace=0.4, wspace=0.4, 
+                             left=0.08, right=0.95, top=0.92, bottom=0.08)
 
         # 1. Main Engagement Funnel (top row, spans 2 columns)
         ax1 = fig.add_subplot(gs[0, :2])
@@ -1051,32 +1054,32 @@ def generate_user_engagement_funnel(conversations, chatbot_id, period):
             level_color = "#E74C3C"
 
         insights_text = f"""
-🎯 ENGAGEMENT INSIGHTS & RECOMMENDATIONS
+ENGAGEMENT INSIGHTS & RECOMMENDATIONS
 
-📊 Overall Performance:
+Overall Performance:
    • Total Conversations: {total_conversations:,}
    • Average Messages/User: {avg_messages_per_user:.1f}
    • Engagement Score: {engagement_score:.1f}% ({engagement_level})
    • User Retention: {(sum(values[1:]) / values[0] * 100):.1f}% continue past first interaction
 
-🔍 Key Findings:
+Key Findings:
    • {values[4]} power users (20+ messages) - these are your most valuable users
    • {values[0] - sum(values[1:])} users dropped after first interaction
    • {sum(values[2:4])} users show strong engagement potential
 
-💡 Actionable Recommendations:
+Actionable Recommendations:
    • Focus on reducing bounce rate from {(values[0] - sum(values[1:]))/values[0]*100:.1f}%
    • Implement engagement triggers for users with 2-4 messages
    • Analyze power user conversations to identify success patterns
         """
 
-        ax6.text(0.02, 0.98, insights_text, transform=ax6.transAxes, fontsize=11,
-                verticalalignment='top', fontfamily='monospace',
-                bbox=dict(boxstyle="round,pad=0.8", facecolor=level_color, alpha=0.1, 
+        ax6.text(0.02, 0.98, insights_text, transform=ax6.transAxes, fontsize=12,
+                verticalalignment='top', fontfamily='DejaVu Sans',
+                bbox=dict(boxstyle="round,pad=1.0", facecolor=level_color, alpha=0.15, 
                          edgecolor=level_color, linewidth=2))
 
         fig.suptitle(f'User Engagement Analytics Dashboard ({period} days)' if period > 0 else 'User Engagement Analytics Dashboard (All Time)', 
-                     fontsize=24, fontweight='bold', y=0.98)
+                     fontsize=28, fontweight='bold', y=0.96, pad=20)
 
         save_plot_to_supabase(plt, "User engagement funnel plot", chatbot_id, period)
 
