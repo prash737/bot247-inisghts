@@ -130,7 +130,7 @@ def generate_message_distribution(user_queries, assistant_responses, chatbot_id,
     """Enhanced message distribution visualization with comprehensive metrics"""
     try:
         plt.style.use('default')
-        fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(20, 16), dpi=150)
+        fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(24, 18), dpi=150)
         fig.patch.set_facecolor('white')
         
         # Main title with improved styling
@@ -284,7 +284,7 @@ def generate_sentiment_analysis(user_queries, chatbot_id, period):
     """Enhanced sentiment analysis with detailed insights"""
     try:
         plt.style.use('default')
-        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 10), dpi=150)
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(24, 12), dpi=150)
         fig.patch.set_facecolor('white')
         
         if not user_queries:
@@ -399,7 +399,7 @@ def generate_chat_volume_plot(conversations, chatbot_id, period):
     """Enhanced chat volume visualization with trend analysis"""
     try:
         plt.style.use('default')
-        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(16, 12), dpi=150)
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(24, 12), dpi=150)
         fig.patch.set_facecolor('white')
         
         if period == 0:
@@ -558,7 +558,7 @@ def generate_peak_hours_activity_plot(conversations, chatbot_id, period):
     """Enhanced peak hours analysis with detailed time patterns"""
     try:
         plt.style.use('default')
-        fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(20, 16), dpi=150)
+        fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(24, 18), dpi=150)
         fig.patch.set_facecolor('white')
         
         # Initialize 24-hour and day-of-week activity counters
@@ -732,7 +732,7 @@ def generate_conversation_quality_analysis(conversations, chatbot_id, period):
     """Comprehensive conversation quality analysis with detailed metrics"""
     try:
         plt.style.use('default')
-        fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(20, 16), dpi=150)
+        fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(24, 18), dpi=150)
         fig.patch.set_facecolor('white')
         
         if not conversations:
@@ -947,7 +947,7 @@ def generate_user_engagement_funnel(conversations, chatbot_id, period):
     """Advanced user engagement analysis with conversion funnel"""
     try:
         plt.style.use('default')
-        fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(20, 16), dpi=150)
+        fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(24, 18), dpi=150)
         fig.patch.set_facecolor('white')
         
         if not conversations:
