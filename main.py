@@ -438,73 +438,7 @@ def generate_peak_hours_activity_plot(conversations, chatbot_id, period):
         plt.close()
 
 
-def generate_monthly_conversation_heatmap(conversations, chatbot_id):
-    try:
-        # Initialize heatmap data
-        heatmap_data = np.zeros((12, 31))  # Fixed size for all months
 
-        # Count conversations by date
-        for convo in conversations:
-            try:
-                if "date_of_convo" not in convo:
-                    continue
-                convo_date = datetime.strptime(convo["date_of_convo"],
-                                               "%Y-%m-%d")
-                month_idx = convo_date.month - 1
-                day_idx = convo_date.day - 1
-                heatmap_data[month_idx, day_idx] += 1
-            except ValueError as ve:
-                print(
-                    f"ValueError processing date {convo.get('date_of_convo', 'N/A')}: {ve}"
-                )
-                continue
-            except Exception as e:
-                print(f"Error processing date for heatmap: {e}")
-                continue
-
-        # Print heatmap data for debugging
-        print("\nMonthly Conversation Heatmap Matrix:")
-        for month_idx, month in enumerate([
-                'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep',
-                'Oct', 'Nov', 'Dec'
-        ]):
-            print(f"\n{month}:", end=" ")
-            for day in range(31):
-                if heatmap_data[month_idx][day] > 0:
-                    print(
-                        f"Day {day+1}: {int(heatmap_data[month_idx][day])} convos |",
-                        end=" ")
-
-        # Generate improved heatmap plot
-        plt.figure(figsize=(16, 8))
-        # Normalize and display heatmap with proper scaling
-        max_val = np.max(heatmap_data)
-        if max_val > 0:
-            plt.imshow(heatmap_data,
-                       cmap='YlOrRd',
-                       aspect='auto',
-                       norm=plt.Normalize(0, max_val))
-        else:
-            plt.imshow(heatmap_data, cmap='YlOrRd', aspect='auto')
-        plt.colorbar(label='Number of Conversations')
-        plt.yticks(range(12), [
-            'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep',
-            'Oct', 'Nov', 'Dec'
-        ])
-        plt.xticks(range(0, 31, 5), [str(i + 1) for i in range(0, 31, 5)])
-        plt.xlabel('Day of the Month')
-        plt.title('Monthly Conversation Heatmap', fontsize=16, pad=20)
-
-        # Save the plot
-        periods = [0, 2, 7, 10]  #  Heatmap is for all available data
-        for period in periods:
-            save_plot_to_supabase(plt, "Monthly conversation heatmap",
-                                  chatbot_id, period)
-
-    except Exception as e:
-        print(f"Error generating monthly conversation heatmap: {e}")
-    finally:
-        plt.close()
 
 
 def get_conversation_insights(chatbot_id, period):
@@ -566,13 +500,12 @@ def get_conversation_insights(chatbot_id, period):
         # Clean existing plots first to ensure fresh generation
         clean_existing_plots(chatbot_id, period)
         
-        # Generate all visualizations (Top 10 User Queries plot completely removed)
+        # Generate all visualizations (Top 10 User Queries plot and Monthly Heatmap removed)
         generate_message_distribution(user_queries, assistant_responses,
                                       chatbot_id, period)
         generate_sentiment_analysis(user_queries, chatbot_id, period)
         generate_chat_volume_plot(conversations, chatbot_id, period)
         generate_peak_hours_activity_plot(conversations, chatbot_id, period)
-        generate_monthly_conversation_heatmap(all_conversations, chatbot_id)
 
         # Prepare insights data
         current_date = datetime.now().date().isoformat()
