@@ -106,28 +106,7 @@ def save_plot_to_supabase(plt, plot_name, chatbot_id, period):
         print(f"Error saving plot to Supabase: {e}")
 
 
-def generate_top_10_user_queries(user_queries, chatbot_id, period):
-    try:
-        if not user_queries:
-            plt.figure(figsize=(15, 10))
-            plt.text(0.5,
-                     0.5,
-                     'No queries available',
-                     horizontalalignment='center',
-                     fontsize=20)
-            plt.axis('off')
-        else:
-            query_labels, query_values = zip(
-                *Counter(user_queries).most_common(10))
-            plt.figure(figsize=(12, 8), dpi=150)
-            plt.barh(query_labels, query_values, color="skyblue")
-            plt.xlabel("FREQUENCY", fontsize=20)
-            plt.title("Top 10 User Queries", pad=20, fontsize=24)
-        save_plot_to_supabase(plt, "Top 10 user queries", chatbot_id, period)
-    except Exception as e:
-        print(f"Error generating top queries plot: {e}")
-    finally:
-        plt.close()
+
 
 
 def generate_message_distribution(user_queries, assistant_responses,
@@ -154,15 +133,11 @@ def generate_message_distribution(user_queries, assistant_responses,
 def generate_sentiment_analysis(user_queries, chatbot_id, period):
     try:
         if not user_queries:
-            plt.figure(figsize=(10, 10), dpi=150)
-            plt.text(0.5,
-                     0.5,
-                     'No queries available for sentiment analysis',
-                     horizontalalignment='center',
-                     fontsize=20)
+            plt.figure(figsize=(12, 8), dpi=150)
+            plt.text(0.5, 0.5, 'No queries available for sentiment analysis',
+                     horizontalalignment='center', fontsize=16)
             plt.axis('off')
-            save_plot_to_supabase(plt, "Sentiment analysis plot", chatbot_id,
-                                  period)
+            save_plot_to_supabase(plt, "Sentiment analysis plot", chatbot_id, period)
             return
 
         sentiments = {"Positive": 0, "Neutral": 0, "Negative": 0}
@@ -175,27 +150,53 @@ def generate_sentiment_analysis(user_queries, chatbot_id, period):
             else:
                 sentiments["Neutral"] += 1
 
-        # Only create pie chart if we have data
+        # Create horizontal bar chart if we have data
         if sum(sentiments.values()) > 0:
-            plt.figure(figsize=(10, 10), dpi=150)
-            plt.pie(list(sentiments.values()),
-                    labels=list(sentiments.keys()),
-                    autopct="%1.1f%%",
-                    colors=["#90EE90", "#FFB366", "#FF7F7F"])
-            plt.title("Sentiment Analysis of User Queries",
-                      pad=20,
-                      fontsize=24)
+            plt.figure(figsize=(12, 8), dpi=150)
+            
+            labels = list(sentiments.keys())
+            values = list(sentiments.values())
+            colors = ["#2ECC71", "#F39C12", "#E74C3C"]  # Green, Orange, Red
+            
+            # Create horizontal bar chart
+            bars = plt.barh(labels, values, color=colors, alpha=0.8, edgecolor='white', linewidth=2)
+            
+            # Add value labels on bars
+            for i, (bar, value) in enumerate(zip(bars, values)):
+                percentage = (value / sum(values)) * 100
+                plt.text(bar.get_width() + max(values) * 0.01, bar.get_y() + bar.get_height()/2,
+                        f'{value} ({percentage:.1f}%)', 
+                        va='center', ha='left', fontsize=12, fontweight='bold')
+            
+            # Styling
+            plt.xlabel('Number of Queries', fontsize=14, fontweight='bold')
+            plt.title('User Query Sentiment Analysis', fontsize=18, fontweight='bold', pad=20)
+            plt.grid(axis='x', alpha=0.3, linestyle='--')
+            
+            # Set x-axis limit to accommodate labels
+            plt.xlim(0, max(values) * 1.2)
+            
+            # Remove top and right spines
+            ax = plt.gca()
+            ax.spines['top'].set_visible(False)
+            ax.spines['right'].set_visible(False)
+            ax.spines['left'].set_linewidth(0.5)
+            ax.spines['bottom'].set_linewidth(0.5)
+            
+            # Add total count annotation
+            total_queries = sum(values)
+            plt.text(0.02, 0.98, f'Total Queries Analyzed: {total_queries}',
+                    transform=ax.transAxes, fontsize=11, verticalalignment='top',
+                    bbox=dict(boxstyle="round,pad=0.3", facecolor="lightblue", alpha=0.7))
+            
+            plt.tight_layout()
         else:
-            plt.figure(figsize=(10, 10), dpi=150)
-            plt.text(0.5,
-                     0.5,
-                     'No sentiment data available',
-                     horizontalalignment='center',
-                     fontsize=20)
+            plt.figure(figsize=(12, 8), dpi=150)
+            plt.text(0.5, 0.5, 'No sentiment data available',
+                     horizontalalignment='center', fontsize=16)
             plt.axis('off')
 
-        save_plot_to_supabase(plt, "Sentiment analysis plot", chatbot_id,
-                              period)
+        save_plot_to_supabase(plt, "Sentiment analysis plot", chatbot_id, period)
     except Exception as e:
         print(f"Error generating sentiment analysis: {e}")
     finally:
@@ -505,7 +506,6 @@ def get_conversation_insights(chatbot_id, period):
         top_user_queries_json = {"queries": top_user_queries_dict}
 
         # Generate all visualizations
-        generate_top_10_user_queries(user_queries, chatbot_id, period)
         generate_message_distribution(user_queries, assistant_responses,
                                       chatbot_id, period)
         generate_sentiment_analysis(user_queries, chatbot_id, period)
