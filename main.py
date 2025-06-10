@@ -271,7 +271,8 @@ def generate_message_distribution(user_queries, assistant_responses, chatbot_id,
                         bbox=dict(boxstyle="round,pad=0.5", facecolor=performance_color, alpha=0.2, 
                                  edgecolor=performance_color, linewidth=2))
         
-        plt.tight_layout()
+        plt.tight_layout(pad=3.0, h_pad=2.5, w_pad=2.5)
+        plt.subplots_adjust(top=0.92, bottom=0.08, left=0.06, right=0.94, hspace=0.3, wspace=0.25)
         save_plot_to_supabase(plt, "Message distribution plot", chatbot_id, period)
         
     except Exception as e:
@@ -386,7 +387,8 @@ def generate_sentiment_analysis(user_queries, chatbot_id, period):
                         bbox=dict(boxstyle="round,pad=0.5", facecolor="#ECF0F1", alpha=0.9))
         
         fig.suptitle('User Sentiment Analysis Dashboard', fontsize=24, fontweight='bold', y=0.95, color='#2C3E50')
-        plt.tight_layout()
+        plt.tight_layout(pad=3.0, h_pad=2.0, w_pad=3.0)
+        plt.subplots_adjust(top=0.90, bottom=0.12, left=0.08, right=0.92, wspace=0.3)
         save_plot_to_supabase(plt, "Sentiment analysis plot", chatbot_id, period)
         
     except Exception as e:
@@ -545,7 +547,8 @@ def generate_chat_volume_plot(conversations, chatbot_id, period):
                         bbox=dict(boxstyle="round,pad=0.5", facecolor="#ECF0F1", alpha=0.9))
         
         fig.suptitle('Chat Volume Analysis Dashboard', fontsize=24, fontweight='bold', y=0.95, color='#2C3E50')
-        plt.tight_layout()
+        plt.tight_layout(pad=3.0, h_pad=2.0, w_pad=3.0)
+        plt.subplots_adjust(top=0.90, bottom=0.12, left=0.08, right=0.92, wspace=0.3)
         save_plot_to_supabase(plt, "Chat volume plot", chatbot_id, period)
         
     except Exception as e:
@@ -719,7 +722,8 @@ def generate_peak_hours_activity_plot(conversations, chatbot_id, period):
         fig.suptitle(f'Peak Hours & Activity Patterns {period_text}', 
                     fontsize=24, fontweight='bold', y=0.95, color='#2C3E50')
         
-        plt.tight_layout()
+        plt.tight_layout(pad=3.0, h_pad=2.5, w_pad=2.5)
+        plt.subplots_adjust(top=0.92, bottom=0.08, left=0.06, right=0.94, hspace=0.3, wspace=0.25)
         save_plot_to_supabase(plt, "Peak hours activity plot", chatbot_id, period)
         
     except Exception as e:
@@ -934,7 +938,8 @@ def generate_conversation_quality_analysis(conversations, chatbot_id, period):
         fig.suptitle(f'Conversation Quality Analysis Dashboard {period_text}', 
                     fontsize=24, fontweight='bold', y=0.95, color='#2C3E50')
         
-        plt.tight_layout()
+        plt.tight_layout(pad=3.0, h_pad=2.5, w_pad=2.5)
+        plt.subplots_adjust(top=0.92, bottom=0.08, left=0.06, right=0.94, hspace=0.3, wspace=0.25)
         save_plot_to_supabase(plt, "Conversation quality analysis plot", chatbot_id, period)
         
     except Exception as e:
@@ -1135,7 +1140,8 @@ def generate_user_engagement_funnel(conversations, chatbot_id, period):
         fig.suptitle(f'User Engagement Analytics Dashboard {period_text}', 
                     fontsize=24, fontweight='bold', y=0.95, color='#2C3E50')
         
-        plt.tight_layout()
+        plt.tight_layout(pad=3.0, h_pad=2.5, w_pad=2.5)
+        plt.subplots_adjust(top=0.92, bottom=0.08, left=0.06, right=0.94, hspace=0.3, wspace=0.25)
         save_plot_to_supabase(plt, "User engagement funnel plot", chatbot_id, period)
         
     except Exception as e:
