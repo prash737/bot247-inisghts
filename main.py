@@ -295,6 +295,87 @@ def generate_chat_volume_plot(conversations, chatbot_id, period):
         plt.close()
 
 
+def generate_peak_hours_activity_plot(conversations, chatbot_id, period):
+    try:
+        # Initialize 24-hour activity counter
+        hourly_activity = {hour: 0 for hour in range(24)}
+        
+        # Count conversations by hour
+        for convo in conversations:
+            if "messages" not in convo:
+                continue
+                
+            messages = convo["messages"]
+            for message in messages:
+                if message.get("role") == "user":
+                    # Extract hour from created_at or use a default pattern
+                    try:
+                        # Try to get timestamp from message or conversation
+                        if "created_at" in convo:
+                            timestamp = datetime.fromisoformat(convo["created_at"].replace('Z', '+00:00'))
+                            hour = timestamp.hour
+                            hourly_activity[hour] += 1
+                        break  # Only count first user message per conversation
+                    except Exception as e:
+                        continue
+        
+        # Create the plot
+        hours = list(range(24))
+        activity_counts = [hourly_activity[hour] for hour in hours]
+        
+        plt.figure(figsize=(15, 8), dpi=150)
+        
+        if sum(activity_counts) == 0:
+            plt.text(0.5, 0.5, 'No activity data available for peak hours analysis', 
+                    horizontalalignment='center', fontsize=16)
+            plt.axis('off')
+        else:
+            # Create bar chart
+            bars = plt.bar(hours, activity_counts, color='#3498db', alpha=0.7, edgecolor='#2980b9')
+            
+            # Highlight peak hours
+            peak_hour = hours[activity_counts.index(max(activity_counts))]
+            bars[peak_hour].set_color('#e74c3c')
+            
+            # Format the plot
+            plt.xlabel('Hour of Day (24-hour format)', fontsize=14)
+            plt.ylabel('Number of Conversations', fontsize=14)
+            plt.title(f'Peak Hours Activity Analysis ({period} days)' if period > 0 else 'Peak Hours Activity Analysis (All Time)', 
+                     fontsize=18, pad=20)
+            
+            # Set x-axis ticks and labels
+            plt.xticks(range(0, 24, 2), [f'{h:02d}:00' for h in range(0, 24, 2)], rotation=45)
+            plt.grid(True, alpha=0.3, axis='y')
+            
+            # Add peak hour annotation
+            peak_count = max(activity_counts)
+            plt.annotate(f'Peak Hour: {peak_hour:02d}:00\n({peak_count} conversations)', 
+                        xy=(peak_hour, peak_count), 
+                        xytext=(peak_hour + 2, peak_count + max(activity_counts) * 0.1),
+                        arrowprops=dict(arrowstyle='->', color='red', lw=1.5),
+                        fontsize=12, ha='center',
+                        bbox=dict(boxstyle="round,pad=0.3", facecolor="yellow", alpha=0.7))
+            
+            # Add insights
+            total_conversations = sum(activity_counts)
+            business_hours_activity = sum(activity_counts[9:17])  # 9 AM to 5 PM
+            business_hours_percentage = (business_hours_activity / total_conversations * 100) if total_conversations > 0 else 0
+            
+            insights_text = f"Business Hours (9AM-5PM): {business_hours_percentage:.1f}% of activity"
+            plt.text(0.02, 0.98, insights_text, transform=plt.gca().transAxes, 
+                    fontsize=11, verticalalignment='top',
+                    bbox=dict(boxstyle="round,pad=0.3", facecolor="lightgreen", alpha=0.7))
+            
+            plt.tight_layout()
+        
+        save_plot_to_supabase(plt, "Peak hours activity plot", chatbot_id, period)
+        
+    except Exception as e:
+        print(f"Error generating peak hours activity plot: {e}")
+    finally:
+        plt.close()
+
+
 def generate_monthly_conversation_heatmap(conversations, chatbot_id):
     try:
         # Initialize heatmap data
@@ -426,6 +507,7 @@ def get_conversation_insights(chatbot_id, period):
                                       chatbot_id, period)
         generate_sentiment_analysis(user_queries, chatbot_id, period)
         generate_chat_volume_plot(conversations, chatbot_id, period)
+        generate_peak_hours_activity_plot(conversations, chatbot_id, period)
         generate_monthly_conversation_heatmap(all_conversations, chatbot_id)
 
         # Prepare insights data
