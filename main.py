@@ -79,6 +79,25 @@ def find_unanswered_queries(conversations):
     return unanswered_queries
 
 
+def clean_existing_plots(chatbot_id, period):
+    """Clean existing plots for the given chatbot and period"""
+    PLOT_BUCKET_NAME = "plots"
+    today = datetime.now().strftime("%Y-%m-%d")
+    dir_path = f"{chatbot_id}/{today}/{period}"
+    
+    try:
+        # List all files in the directory
+        response = supabase.storage.from_(PLOT_BUCKET_NAME).list(path=dir_path)
+        if response:
+            # Delete each file
+            files_to_delete = [f"{dir_path}/{file['name']}" for file in response]
+            if files_to_delete:
+                supabase.storage.from_(PLOT_BUCKET_NAME).remove(files_to_delete)
+                print(f"Cleaned {len(files_to_delete)} existing plots for {chatbot_id}/{period}")
+    except Exception as e:
+        print(f"Note: Could not clean existing plots (this is normal for first run): {e}")
+
+
 def save_plot_to_supabase(plt, plot_name, chatbot_id, period):
     PLOT_BUCKET_NAME = "plots"
     today = datetime.now().strftime("%Y-%m-%d")
@@ -544,7 +563,10 @@ def get_conversation_insights(chatbot_id, period):
         top_user_queries_dict = dict(Counter(user_queries).most_common(10))
         top_user_queries_json = {"queries": top_user_queries_dict}
 
-        # Generate all visualizations (Top 10 User Queries plot excluded)
+        # Clean existing plots first to ensure fresh generation
+        clean_existing_plots(chatbot_id, period)
+        
+        # Generate all visualizations (Top 10 User Queries plot completely removed)
         generate_message_distribution(user_queries, assistant_responses,
                                       chatbot_id, period)
         generate_sentiment_analysis(user_queries, chatbot_id, period)
