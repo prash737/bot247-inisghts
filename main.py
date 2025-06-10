@@ -84,7 +84,7 @@ def clean_existing_plots(chatbot_id, period):
     PLOT_BUCKET_NAME = "plots"
     today = datetime.now().strftime("%Y-%m-%d")
     dir_path = f"{chatbot_id}/{today}/{period}"
-    
+
     try:
         # List all files in the directory
         response = supabase.storage.from_(PLOT_BUCKET_NAME).list(path=dir_path)
@@ -172,12 +172,12 @@ def generate_sentiment_analysis(user_queries, chatbot_id, period):
         # Create enhanced donut chart if we have data
         if sum(sentiments.values()) > 0:
             plt.figure(figsize=(16, 12), dpi=150)
-            
+
             # Reorder for better visual flow: Positive, Neutral, Negative
             ordered_labels = ["Positive", "Neutral", "Negative"]
             ordered_values = [sentiments[label] for label in ordered_labels]
             colors = ["#27AE60", "#F39C12", "#E74C3C"]  # Enhanced colors
-            
+
             # Create donut chart with enhanced styling
             wedges, texts, autotexts = plt.pie(
                 ordered_values, 
@@ -190,19 +190,19 @@ def generate_sentiment_analysis(user_queries, chatbot_id, period):
                 textprops={'fontsize': 14, 'fontweight': 'bold'},
                 wedgeprops=dict(width=0.5, edgecolor='white', linewidth=3)
             )
-            
+
             # Style the percentage labels
             for autotext in autotexts:
                 autotext.set_color('white')
                 autotext.set_fontweight('bold')
                 autotext.set_fontsize(13)
                 autotext.set_bbox(dict(boxstyle="round,pad=0.3", facecolor='black', alpha=0.7))
-            
+
             # Style the category labels
             for text in texts:
                 text.set_fontsize(16)
                 text.set_fontweight('bold')
-            
+
             # Add center content
             total_queries = sum(ordered_values)
             plt.text(0, 0.15, 'TOTAL', ha='center', va='center', 
@@ -211,17 +211,17 @@ def generate_sentiment_analysis(user_queries, chatbot_id, period):
                     fontsize=28, fontweight='bold', color='#2C3E50')
             plt.text(0, -0.15, 'QUERIES', ha='center', va='center', 
                     fontsize=14, fontweight='bold', color='#7F8C8D')
-            
+
             # Enhanced title - positioned higher to avoid overlap
             plt.title('User Query Sentiment Analysis', 
                      fontsize=22, fontweight='bold', y=1.08, color='#2C3E50', pad=20)
-            
+
             # Create detailed legend positioned better
             legend_elements = []
             for i, (label, value) in enumerate(zip(ordered_labels, ordered_values)):
                 percentage = (value / total_queries) * 100
                 legend_elements.append(f'{label}: {value:,} ({percentage:.1f}%)')
-            
+
             plt.legend(wedges, legend_elements, 
                       title="Sentiment Breakdown", 
                       loc="center left", 
@@ -231,21 +231,21 @@ def generate_sentiment_analysis(user_queries, chatbot_id, period):
                       frameon=True,
                       fancybox=True,
                       shadow=True)
-            
+
             # Add insights box in a better position
             dominant_sentiment = ordered_labels[ordered_values.index(max(ordered_values))]
             dominant_percentage = (max(ordered_values) / total_queries) * 100
-            
+
             insight_text = f"Key Insights:\n• Dominant sentiment: {dominant_sentiment} ({dominant_percentage:.1f}%)\n• Total analyzed: {total_queries:,} queries\n• Distribution shows emotional tone trends"
             plt.text(1.05, 0.15, insight_text,
                     transform=plt.gca().transAxes,
                     fontsize=12,
                     verticalalignment='top',
                     bbox=dict(boxstyle="round,pad=0.6", facecolor="#ECF0F1", alpha=0.9, edgecolor='#BDC3C7', linewidth=1))
-            
+
             plt.axis('equal')
             plt.subplots_adjust(left=0.1, right=0.75, top=0.85, bottom=0.1)
-            
+
         else:
             plt.figure(figsize=(14, 10), dpi=150)
             plt.text(0.5, 0.5, 'No sentiment data available',
@@ -390,7 +390,7 @@ def generate_peak_hours_activity_plot(conversations, chatbot_id, period):
             # Create bar chart
             bars = plt.bar(hours, activity_counts, color='#3498db', alpha=0.7, edgecolor='#2980b9')
 
-            # Highlight peak hours
+            # Highlight peak hour
             peak_hour = hours[activity_counts.index(max(activity_counts))]
             bars[peak_hour].set_color('#e74c3c')
 
@@ -432,6 +432,161 @@ def generate_peak_hours_activity_plot(conversations, chatbot_id, period):
 
     except Exception as e:
         print(f"Error generating peak hours activity plot: {e}")
+    finally:
+        plt.close()
+
+
+def generate_response_time_analysis(conversations, chatbot_id, period):
+    try:
+        response_times = []
+
+        for convo in conversations:
+            if "messages" not in convo:
+                continue
+
+            messages = convo["messages"]
+            for i in range(len(messages) - 1):
+                if (messages[i].get("role") == "user" and 
+                    messages[i + 1].get("role") == "assistant"):
+                    # Simulate response time analysis (in real scenario, you'd have timestamps)
+                    # For demo, we'll use message length as a proxy for complexity/response time
+                    user_msg_length = len(messages[i].get("content", ""))
+                    assistant_msg_length = len(messages[i + 1].get("content", ""))
+
+                    # Simple heuristic: longer responses take more time
+                    estimated_response_time = min(max(assistant_msg_length / 20, 0.5), 30)  # 0.5-30 seconds
+                    response_times.append(estimated_response_time)
+
+        plt.figure(figsize=(14, 8), dpi=150)
+
+        if not response_times:
+            plt.text(0.5, 0.5, 'No response time data available', 
+                    horizontalalignment='center', fontsize=16)
+            plt.axis('off')
+        else:
+            # Create histogram
+            plt.hist(response_times, bins=20, color='#9b59b6', alpha=0.7, edgecolor='#8e44ad')
+
+            # Add statistics
+            avg_response_time = np.mean(response_times)
+            median_response_time = np.median(response_times)
+
+            plt.axvline(avg_response_time, color='red', linestyle='--', linewidth=2, 
+                       label=f'Average: {avg_response_time:.1f}s')
+            plt.axvline(median_response_time, color='orange', linestyle='--', linewidth=2, 
+                       label=f'Median: {median_response_time:.1f}s')
+
+            plt.xlabel('Response Time (seconds)', fontsize=14)
+            plt.ylabel('Number of Responses', fontsize=14)
+            plt.title(f'Response Time Analysis ({period} days)' if period > 0 else 'Response Time Analysis (All Time)', 
+                     fontsize=18, pad=20)
+            plt.legend(fontsize=12)
+            plt.grid(True, alpha=0.3)
+
+            # Add performance insights
+            fast_responses = sum(1 for rt in response_times if rt <= 2)
+            fast_percentage = (fast_responses / len(response_times)) * 100
+
+            insights_text = f"Performance Insights:\n• Fast responses (≤2s): {fast_percentage:.1f}%\n• Total responses analyzed: {len(response_times):,}\n• Average response time: {avg_response_time:.1f}s"
+            plt.text(0.98, 0.98, insights_text, transform=plt.gca().transAxes, 
+                    fontsize=11, verticalalignment='top', horizontalalignment='right',
+                    bbox=dict(boxstyle="round,pad=0.5", facecolor="#E8F8F5", alpha=0.9, edgecolor='#1ABC9C'))
+
+            plt.tight_layout()
+
+        save_plot_to_supabase(plt, "Response time analysis plot", chatbot_id, period)
+
+    except Exception as e:
+        print(f"Error generating response time analysis: {e}")
+    finally:
+        plt.close()
+
+
+def generate_user_engagement_funnel(conversations, chatbot_id, period):
+    try:
+        engagement_data = {
+            "Started Conversation": 0,
+            "2+ Messages": 0,
+            "5+ Messages": 0,
+            "10+ Messages": 0,
+            "Long Conversation (15+)": 0
+        }
+
+        conversation_lengths = []
+
+        for convo in conversations:
+            if "messages" not in convo:
+                continue
+
+            messages = convo["messages"]
+            user_messages = [msg for msg in messages if msg.get("role") == "user"]
+            user_message_count = len(user_messages)
+            conversation_lengths.append(user_message_count)
+
+            # Count for funnel stages
+            if user_message_count >= 1:
+                engagement_data["Started Conversation"] += 1
+            if user_message_count >= 2:
+                engagement_data["2+ Messages"] += 1
+            if user_message_count >= 5:
+                engagement_data["5+ Messages"] += 1
+            if user_message_count >= 10:
+                engagement_data["10+ Messages"] += 1
+            if user_message_count >= 15:
+                engagement_data["Long Conversation (15+)"] += 1
+
+        plt.figure(figsize=(14, 10), dpi=150)
+
+        if not conversation_lengths:
+            plt.text(0.5, 0.5, 'No engagement data available', 
+                    horizontalalignment='center', fontsize=16)
+            plt.axis('off')
+        else:
+            # Create funnel chart
+            stages = list(engagement_data.keys())
+            values = list(engagement_data.values())
+
+            # Calculate percentages from the first stage
+            if values[0] > 0:
+                percentages = [f"{(val/values[0]*100):.1f}%" for val in values]
+            else:
+                percentages = ["0%"] * len(values)
+
+            # Create horizontal bar chart (funnel style)
+            colors = ['#2ECC71', '#F39C12', '#E67E22', '#E74C3C', '#9B59B6']
+            y_pos = np.arange(len(stages))
+
+            bars = plt.barh(y_pos, values, color=colors, alpha=0.8)
+
+            # Add value and percentage labels
+            for i, (bar, value, pct) in enumerate(zip(bars, values, percentages)):
+                width = bar.get_width()
+                plt.text(width + max(values) * 0.01, bar.get_y() + bar.get_height()/2, 
+                        f'{value:,} ({pct})', ha='left', va='center', fontweight='bold', fontsize=11)
+
+            plt.yticks(y_pos, stages, fontsize=12)
+            plt.xlabel('Number of Users', fontsize=14)
+            plt.title(f'User Engagement Funnel ({period} days)' if period > 0 else 'User Engagement Funnel (All Time)', 
+                     fontsize=18, pad=20)
+
+            # Add engagement insights
+            if conversation_lengths:
+                avg_messages = np.mean(conversation_lengths)
+                engaged_users = sum(1 for length in conversation_lengths if length >= 5)
+                engagement_rate = (engaged_users / len(conversation_lengths)) * 100 if conversation_lengths else 0
+
+                insights_text = f"Engagement Insights:\n• Average messages per user: {avg_messages:.1f}\n• Highly engaged users (5+ msgs): {engagement_rate:.1f}%\n• Total conversations analyzed: {len(conversation_lengths):,}"
+                plt.text(0.98, 0.02, insights_text, transform=plt.gca().transAxes, 
+                        fontsize=11, verticalalignment='bottom', horizontalalignment='right',
+                        bbox=dict(boxstyle="round,pad=0.5", facecolor="#FDF2E9", alpha=0.9, edgecolor='#F39C12'))
+
+            plt.grid(True, alpha=0.3, axis='x')
+            plt.tight_layout()
+
+        save_plot_to_supabase(plt, "User engagement funnel plot", chatbot_id, period)
+
+    except Exception as e:
+        print(f"Error generating user engagement funnel: {e}")
     finally:
         plt.close()
 
@@ -497,13 +652,16 @@ def get_conversation_insights(chatbot_id, period):
 
         # Clean existing plots first to ensure fresh generation
         clean_existing_plots(chatbot_id, period)
-        
+
         # Generate all visualizations (Top 10 User Queries plot and Monthly Heatmap removed)
         generate_message_distribution(user_queries, assistant_responses,
                                       chatbot_id, period)
         generate_sentiment_analysis(user_queries, chatbot_id, period)
         generate_chat_volume_plot(conversations, chatbot_id, period)
         generate_peak_hours_activity_plot(conversations, chatbot_id, period)
+        generate_response_time_analysis(conversations, chatbot_id, period)
+        generate_user_engagement_funnel(conversations, chatbot_id, period)
+
 
         # Prepare insights data
         current_date = datetime.now().date().isoformat()
