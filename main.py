@@ -1,3 +1,4 @@
+
 # Updated get_conversation_insights function to store insights in the "insights" table with specified JSON formats and date.
 from supabase import create_client, Client
 import time
@@ -106,7 +107,7 @@ def save_plot_to_supabase(plt, plot_name, chatbot_id, period):
     try:
         # Save plot to buffer
         buf = io.BytesIO()
-        plt.savefig(buf, format='png')
+        plt.savefig(buf, format='png', dpi=150, bbox_inches='tight', facecolor='white')
         buf.seek(0)
         file_content = buf.read()
         buf.close()
@@ -125,144 +126,150 @@ def save_plot_to_supabase(plt, plot_name, chatbot_id, period):
         print(f"Error saving plot to Supabase: {e}")
 
 
-
-
-
 def generate_message_distribution(user_queries, assistant_responses, chatbot_id, period):
+    """Enhanced message distribution visualization with comprehensive metrics"""
     try:
+        plt.style.use('default')
+        fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(20, 16), dpi=150)
+        fig.patch.set_facecolor('white')
+        
+        # Main title with improved styling
+        fig.suptitle('Conversation Flow & Message Analysis Dashboard', 
+                    fontsize=24, fontweight='bold', y=0.95, color='#2C3E50')
+        
         if not user_queries and not assistant_responses:
-            plt.figure(figsize=(16, 12), dpi=150)
-            plt.text(0.5, 0.5, 'No conversation data available for analysis', 
-                    horizontalalignment='center', fontsize=18)
-            plt.axis('off')
-            save_plot_to_supabase(plt, "Message distribution plot", chatbot_id, period)
-            return
-
-        fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(24, 18), dpi=150)
-        fig.suptitle('Advanced Conversation Flow & Message Analysis', fontsize=26, fontweight='bold', y=0.96)
-        plt.subplots_adjust(left=0.08, right=0.95, top=0.90, bottom=0.08, hspace=0.35, wspace=0.25)
-
-        # 1. Enhanced Message Distribution (top-left)
-        total_queries = len(user_queries)
-        total_responses = len(assistant_responses)
-        
-        # Calculate message complexity
-        avg_query_length = np.mean([len(q.split()) for q in user_queries]) if user_queries else 0
-        avg_response_length = np.mean([len(r.split()) for r in assistant_responses]) if assistant_responses else 0
-        
-        labels = ['User Queries', 'Assistant Responses']
-        sizes = [total_queries, total_responses]
-        colors = ['#FF6B6B', '#4ECDC4']
-        
-        wedges, texts, autotexts = ax1.pie(sizes, labels=labels, colors=colors, autopct='%1.1f%%',
-                                          startangle=90, textprops={'fontsize': 14, 'fontweight': 'bold'},
-                                          wedgeprops=dict(width=0.6, edgecolor='white', linewidth=3))
-        
-        # Add center information
-        ax1.text(0, 0.1, f'{total_queries + total_responses:,}', ha='center', va='center', 
-                fontsize=20, fontweight='bold', color='#2C3E50')
-        ax1.text(0, -0.1, 'Total Messages', ha='center', va='center', 
-                fontsize=14, fontweight='bold', color='#7F8C8D')
-        
-        ax1.set_title('Message Volume Distribution', fontsize=18, fontweight='bold', pad=25)
-        
-        # 2. Message Length Analysis (top-right)
-        if user_queries and assistant_responses:
-            query_lengths = [len(q.split()) for q in user_queries]
-            response_lengths = [len(r.split()) for r in assistant_responses]
-            
-            ax2.hist(query_lengths, bins=20, alpha=0.7, label='User Queries', color='#FF6B6B', density=True)
-            ax2.hist(response_lengths, bins=20, alpha=0.7, label='Assistant Responses', color='#4ECDC4', density=True)
-            
-            ax2.axvline(np.mean(query_lengths), color='#FF6B6B', linestyle='--', linewidth=2, 
-                       label=f'Avg Query: {avg_query_length:.1f} words')
-            ax2.axvline(np.mean(response_lengths), color='#4ECDC4', linestyle='--', linewidth=2, 
-                       label=f'Avg Response: {avg_response_length:.1f} words')
-            
-            ax2.set_xlabel('Message Length (words)', fontsize=12)
-            ax2.set_ylabel('Density', fontsize=12)
-            ax2.set_title('Message Length Distribution Analysis', fontsize=16, fontweight='bold')
-            ax2.legend(fontsize=10)
-            ax2.grid(True, alpha=0.3)
+            for ax in [ax1, ax2, ax3, ax4]:
+                ax.text(0.5, 0.5, 'No conversation data available', 
+                       ha='center', va='center', fontsize=16, color='#7F8C8D')
+                ax.set_xticks([])
+                ax.set_yticks([])
         else:
-            ax2.text(0.5, 0.5, 'Insufficient data for length analysis', ha='center', va='center', fontsize=14)
-            ax2.set_title('Message Length Distribution', fontsize=16, fontweight='bold')
-        
-        # 3. Conversation Complexity Index (bottom-left)
-        complexity_categories = {
-            'Simple (1-5 words)': 0,
-            'Moderate (6-15 words)': 0,
-            'Complex (16-30 words)': 0,
-            'Very Complex (31+ words)': 0
-        }
-        
-        all_messages = user_queries + assistant_responses
-        for msg in all_messages:
-            word_count = len(msg.split())
-            if word_count <= 5:
-                complexity_categories['Simple (1-5 words)'] += 1
-            elif word_count <= 15:
-                complexity_categories['Moderate (6-15 words)'] += 1
-            elif word_count <= 30:
-                complexity_categories['Complex (16-30 words)'] += 1
-            else:
-                complexity_categories['Very Complex (31+ words)'] += 1
-        
-        categories = list(complexity_categories.keys())
-        values = list(complexity_categories.values())
-        colors_complexity = ['#2ECC71', '#F39C12', '#E67E22', '#E74C3C']
-        
-        bars = ax3.bar(categories, values, color=colors_complexity, alpha=0.8)
-        ax3.set_xlabel('Complexity Level', fontsize=12)
-        ax3.set_ylabel('Number of Messages', fontsize=12)
-        ax3.set_title('Message Complexity Distribution', fontsize=16, fontweight='bold')
-        ax3.tick_params(axis='x', rotation=45)
-        
-        # Add value labels on bars
-        for bar, value in zip(bars, values):
-            if value > 0:
-                ax3.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.5, 
-                        str(value), ha='center', va='bottom', fontweight='bold')
-        
-        # 4. Conversation Flow Metrics (bottom-right)
-        metrics_data = {
-            'Query-Response Ratio': f'{total_responses/total_queries:.2f}' if total_queries > 0 else 'N/A',
-            'Avg Query Length': f'{avg_query_length:.1f} words',
-            'Avg Response Length': f'{avg_response_length:.1f} words',
-            'Verbosity Index': f'{avg_response_length/avg_query_length:.2f}x' if avg_query_length > 0 else 'N/A',
-            'Total Word Count': f'{sum(len(msg.split()) for msg in all_messages):,} words',
-            'Conversation Density': f'{(total_queries + total_responses)/max(1, len(set(all_messages))):.1f} msgs/topic'
-        }
-        
-        # Create a clean metrics display
-        ax4.axis('off')
-        ax4.set_title('Conversation Flow Metrics', fontsize=16, fontweight='bold', pad=20)
-        
-        y_positions = np.linspace(0.8, 0.1, len(metrics_data))
-        for i, (metric, value) in enumerate(metrics_data.items()):
-            # Metric name
-            ax4.text(0.05, y_positions[i], metric + ':', fontsize=13, fontweight='bold', 
-                    transform=ax4.transAxes, verticalalignment='center')
-            # Metric value
-            ax4.text(0.95, y_positions[i], str(value), fontsize=13, 
-                    transform=ax4.transAxes, verticalalignment='center', 
-                    horizontalalignment='right', color='#2C3E50',
-                    bbox=dict(boxstyle="round,pad=0.3", facecolor="#ECF0F1", alpha=0.7))
-        
-        # Add insights box
-        if total_queries > 0:
-            response_rate = (total_responses / total_queries) * 100
-            insight_color = '#27AE60' if response_rate > 90 else '#F39C12' if response_rate > 70 else '#E74C3C'
+            total_queries = len(user_queries)
+            total_responses = len(assistant_responses)
             
-            insight_text = f"📊 Key Insights:\n"
-            insight_text += f"• Response Rate: {response_rate:.1f}%\n"
-            insight_text += f"• Communication Style: {'Detailed' if avg_response_length > avg_query_length * 2 else 'Concise'}\n"
-            insight_text += f"• Interaction Quality: {'High' if response_rate > 85 else 'Moderate' if response_rate > 70 else 'Needs Improvement'}"
+            # 1. Message Volume Distribution (Donut Chart)
+            labels = ['User Queries', 'Assistant Responses']
+            sizes = [total_queries, total_responses]
+            colors = ['#3498DB', '#E74C3C']
             
-            ax4.text(0.5, 0.02, insight_text, transform=ax4.transAxes, fontsize=11, 
-                    horizontalalignment='center', verticalalignment='bottom',
-                    bbox=dict(boxstyle="round,pad=0.5", facecolor=insight_color, alpha=0.1, 
-                             edgecolor=insight_color, linewidth=2))
+            wedges, texts, autotexts = ax1.pie(sizes, labels=labels, colors=colors, 
+                                              autopct='%1.1f%%', startangle=90,
+                                              wedgeprops=dict(width=0.6, edgecolor='white', linewidth=3),
+                                              textprops={'fontsize': 14, 'fontweight': 'bold'})
+            
+            # Center text
+            ax1.text(0, 0.1, f'{total_queries + total_responses:,}', ha='center', va='center', 
+                    fontsize=20, fontweight='bold', color='#2C3E50')
+            ax1.text(0, -0.1, 'Total Messages', ha='center', va='center', 
+                    fontsize=12, color='#7F8C8D')
+            ax1.set_title('Message Volume Overview', fontsize=16, fontweight='bold', pad=20)
+            
+            # 2. Message Length Analysis
+            if user_queries and assistant_responses:
+                query_lengths = [len(q.split()) for q in user_queries]
+                response_lengths = [len(r.split()) for r in assistant_responses]
+                
+                # Create bins for better visualization
+                max_length = max(max(query_lengths) if query_lengths else 0, 
+                               max(response_lengths) if response_lengths else 0)
+                bins = np.linspace(0, min(max_length, 100), 25)
+                
+                ax2.hist(query_lengths, bins=bins, alpha=0.7, label='User Queries', 
+                        color='#3498DB', density=True, edgecolor='white')
+                ax2.hist(response_lengths, bins=bins, alpha=0.7, label='Assistant Responses', 
+                        color='#E74C3C', density=True, edgecolor='white')
+                
+                avg_query = np.mean(query_lengths)
+                avg_response = np.mean(response_lengths)
+                
+                ax2.axvline(avg_query, color='#2980B9', linestyle='--', linewidth=2,
+                           label=f'Avg Query: {avg_query:.1f} words')
+                ax2.axvline(avg_response, color='#C0392B', linestyle='--', linewidth=2,
+                           label=f'Avg Response: {avg_response:.1f} words')
+                
+                ax2.set_xlabel('Message Length (words)', fontsize=12, fontweight='bold')
+                ax2.set_ylabel('Density', fontsize=12, fontweight='bold')
+                ax2.set_title('Message Length Distribution', fontsize=16, fontweight='bold')
+                ax2.legend(fontsize=10, frameon=True, fancybox=True, shadow=True)
+                ax2.grid(True, alpha=0.3)
+                ax2.spines['top'].set_visible(False)
+                ax2.spines['right'].set_visible(False)
+            
+            # 3. Conversation Complexity Analysis
+            all_messages = user_queries + assistant_responses
+            complexity_data = {'Simple\n(1-5 words)': 0, 'Moderate\n(6-15 words)': 0, 
+                             'Complex\n(16-30 words)': 0, 'Very Complex\n(31+ words)': 0}
+            
+            for msg in all_messages:
+                word_count = len(msg.split())
+                if word_count <= 5:
+                    complexity_data['Simple\n(1-5 words)'] += 1
+                elif word_count <= 15:
+                    complexity_data['Moderate\n(6-15 words)'] += 1
+                elif word_count <= 30:
+                    complexity_data['Complex\n(16-30 words)'] += 1
+                else:
+                    complexity_data['Very Complex\n(31+ words)'] += 1
+            
+            categories = list(complexity_data.keys())
+            values = list(complexity_data.values())
+            colors_complexity = ['#2ECC71', '#F39C12', '#E67E22', '#E74C3C']
+            
+            bars = ax3.bar(categories, values, color=colors_complexity, alpha=0.8, 
+                          edgecolor='white', linewidth=2)
+            ax3.set_ylabel('Number of Messages', fontsize=12, fontweight='bold')
+            ax3.set_title('Message Complexity Distribution', fontsize=16, fontweight='bold')
+            ax3.grid(True, alpha=0.3, axis='y')
+            ax3.spines['top'].set_visible(False)
+            ax3.spines['right'].set_visible(False)
+            
+            # Add value labels
+            for bar, value in zip(bars, values):
+                if value > 0:
+                    ax3.text(bar.get_x() + bar.get_width()/2, bar.get_height() + max(values)*0.02,
+                            f'{value:,}', ha='center', va='bottom', fontweight='bold', fontsize=11)
+            
+            # 4. Key Metrics Panel
+            ax4.axis('off')
+            ax4.set_title('Key Performance Metrics', fontsize=16, fontweight='bold', y=0.95)
+            
+            # Calculate metrics
+            avg_query_length = np.mean([len(q.split()) for q in user_queries]) if user_queries else 0
+            avg_response_length = np.mean([len(r.split()) for r in assistant_responses]) if assistant_responses else 0
+            response_ratio = total_responses / total_queries if total_queries > 0 else 0
+            verbosity_index = avg_response_length / avg_query_length if avg_query_length > 0 else 0
+            
+            metrics = [
+                ('Total Conversations', f'{len(set(user_queries + assistant_responses)):,}'),
+                ('Response Rate', f'{response_ratio:.2f}:1'),
+                ('Avg Query Length', f'{avg_query_length:.1f} words'),
+                ('Avg Response Length', f'{avg_response_length:.1f} words'),
+                ('Verbosity Index', f'{verbosity_index:.2f}x'),
+                ('Total Word Count', f'{sum(len(msg.split()) for msg in all_messages):,}')
+            ]
+            
+            y_start = 0.8
+            for i, (metric, value) in enumerate(metrics):
+                y_pos = y_start - (i * 0.12)
+                
+                # Metric box
+                ax4.text(0.05, y_pos, metric, fontsize=13, fontweight='bold', 
+                        transform=ax4.transAxes, va='center')
+                ax4.text(0.95, y_pos, value, fontsize=13, transform=ax4.transAxes, 
+                        va='center', ha='right', color='#2C3E50',
+                        bbox=dict(boxstyle="round,pad=0.4", facecolor="#ECF0F1", 
+                                 edgecolor='#BDC3C7', linewidth=1))
+            
+            # Performance indicator
+            if total_queries > 0:
+                performance_score = min(100, (response_ratio * 50) + (min(avg_response_length, 20) * 2.5))
+                performance_level = 'Excellent' if performance_score >= 80 else 'Good' if performance_score >= 60 else 'Fair'
+                performance_color = '#27AE60' if performance_score >= 80 else '#F39C12' if performance_score >= 60 else '#E74C3C'
+                
+                ax4.text(0.5, 0.08, f'Performance: {performance_level} ({performance_score:.0f}/100)', 
+                        transform=ax4.transAxes, ha='center', va='center', fontsize=14, fontweight='bold',
+                        bbox=dict(boxstyle="round,pad=0.5", facecolor=performance_color, alpha=0.2, 
+                                 edgecolor=performance_color, linewidth=2))
         
         plt.tight_layout()
         save_plot_to_supabase(plt, "Message distribution plot", chatbot_id, period)
@@ -274,109 +281,114 @@ def generate_message_distribution(user_queries, assistant_responses, chatbot_id,
 
 
 def generate_sentiment_analysis(user_queries, chatbot_id, period):
+    """Enhanced sentiment analysis with detailed insights"""
     try:
+        plt.style.use('default')
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 10), dpi=150)
+        fig.patch.set_facecolor('white')
+        
         if not user_queries:
-            plt.figure(figsize=(12, 8), dpi=150)
-            plt.text(0.5, 0.5, 'No queries available for sentiment analysis',
-                     horizontalalignment='center', fontsize=16)
-            plt.axis('off')
-            save_plot_to_supabase(plt, "Sentiment analysis plot", chatbot_id, period)
-            return
-
-        sentiments = {"Positive": 0, "Neutral": 0, "Negative": 0}
-        for query in user_queries:
-            analysis = TextBlob(query)
-            if analysis.sentiment.polarity > 0:
-                sentiments["Positive"] += 1
-            elif analysis.sentiment.polarity < 0:
-                sentiments["Negative"] += 1
-            else:
-                sentiments["Neutral"] += 1
-
-        # Create enhanced donut chart if we have data
-        if sum(sentiments.values()) > 0:
-            plt.figure(figsize=(16, 12), dpi=150)
-
-            # Reorder for better visual flow: Positive, Neutral, Negative
+            for ax in [ax1, ax2]:
+                ax.text(0.5, 0.5, 'No queries available for sentiment analysis',
+                       ha='center', va='center', fontsize=16, color='#7F8C8D')
+                ax.set_xticks([])
+                ax.set_yticks([])
+            fig.suptitle('Sentiment Analysis Dashboard', fontsize=24, fontweight='bold', color='#2C3E50')
+        else:
+            sentiments = {"Positive": 0, "Neutral": 0, "Negative": 0}
+            sentiment_scores = []
+            
+            for query in user_queries:
+                analysis = TextBlob(query)
+                sentiment_scores.append(analysis.sentiment.polarity)
+                if analysis.sentiment.polarity > 0.1:
+                    sentiments["Positive"] += 1
+                elif analysis.sentiment.polarity < -0.1:
+                    sentiments["Negative"] += 1
+                else:
+                    sentiments["Neutral"] += 1
+            
+            # 1. Sentiment Distribution (Enhanced Donut)
             ordered_labels = ["Positive", "Neutral", "Negative"]
             ordered_values = [sentiments[label] for label in ordered_labels]
-            colors = ["#27AE60", "#F39C12", "#E74C3C"]  # Enhanced colors
-
-            # Create donut chart with enhanced styling
-            wedges, texts, autotexts = plt.pie(
-                ordered_values, 
-                labels=ordered_labels, 
-                colors=colors,
-                autopct=lambda pct: f'{pct:.1f}%\n({int(pct/100*sum(ordered_values))})',
-                startangle=90,
-                pctdistance=0.75,
-                labeldistance=1.2,
-                textprops={'fontsize': 14, 'fontweight': 'bold'},
-                wedgeprops=dict(width=0.5, edgecolor='white', linewidth=3)
-            )
-
-            # Style the percentage labels
-            for autotext in autotexts:
-                autotext.set_color('white')
-                autotext.set_fontweight('bold')
-                autotext.set_fontsize(13)
-                autotext.set_bbox(dict(boxstyle="round,pad=0.3", facecolor='black', alpha=0.7))
-
-            # Style the category labels
-            for text in texts:
-                text.set_fontsize(16)
-                text.set_fontweight('bold')
-
-            # Add center content
-            total_queries = sum(ordered_values)
-            plt.text(0, 0.15, 'TOTAL', ha='center', va='center', 
-                    fontsize=18, fontweight='bold', color='#2C3E50')
-            plt.text(0, 0, f'{total_queries:,}', ha='center', va='center', 
-                    fontsize=28, fontweight='bold', color='#2C3E50')
-            plt.text(0, -0.15, 'QUERIES', ha='center', va='center', 
-                    fontsize=14, fontweight='bold', color='#7F8C8D')
-
-            # Enhanced title - positioned higher to avoid overlap
-            plt.title('User Query Sentiment Analysis', 
-                     fontsize=22, fontweight='bold', y=1.08, color='#2C3E50', pad=20)
-
-            # Create detailed legend positioned better
-            legend_elements = []
-            for i, (label, value) in enumerate(zip(ordered_labels, ordered_values)):
-                percentage = (value / total_queries) * 100
-                legend_elements.append(f'{label}: {value:,} ({percentage:.1f}%)')
-
-            plt.legend(wedges, legend_elements, 
-                      title="Sentiment Breakdown", 
-                      loc="center left", 
-                      bbox_to_anchor=(1.05, 0.5),
-                      fontsize=13, 
-                      title_fontsize=16,
-                      frameon=True,
-                      fancybox=True,
-                      shadow=True)
-
-            # Add insights box in a better position
-            dominant_sentiment = ordered_labels[ordered_values.index(max(ordered_values))]
-            dominant_percentage = (max(ordered_values) / total_queries) * 100
-
-            insight_text = f"Key Insights:\n• Dominant sentiment: {dominant_sentiment} ({dominant_percentage:.1f}%)\n• Total analyzed: {total_queries:,} queries\n• Distribution shows emotional tone trends"
-            plt.text(1.05, 0.15, insight_text,
-                    transform=plt.gca().transAxes,
-                    fontsize=12,
-                    verticalalignment='top',
-                    bbox=dict(boxstyle="round,pad=0.6", facecolor="#ECF0F1", alpha=0.9, edgecolor='#BDC3C7', linewidth=1))
-
-            plt.axis('equal')
-            plt.subplots_adjust(left=0.1, right=0.75, top=0.85, bottom=0.1)
-
-        else:
-            plt.figure(figsize=(14, 10), dpi=150)
-            plt.text(0.5, 0.5, 'No sentiment data available',
-                     horizontalalignment='center', fontsize=16)
-            plt.axis('off')
-
+            colors = ["#27AE60", "#F39C12", "#E74C3C"]
+            
+            if sum(ordered_values) > 0:
+                wedges, texts, autotexts = ax1.pie(
+                    ordered_values, labels=ordered_labels, colors=colors,
+                    autopct=lambda pct: f'{pct:.1f}%\n({int(pct/100*sum(ordered_values))})',
+                    startangle=90, pctdistance=0.75, labeldistance=1.15,
+                    textprops={'fontsize': 14, 'fontweight': 'bold'},
+                    wedgeprops=dict(width=0.6, edgecolor='white', linewidth=3)
+                )
+                
+                # Style percentage labels
+                for autotext in autotexts:
+                    autotext.set_color('white')
+                    autotext.set_fontweight('bold')
+                    autotext.set_bbox(dict(boxstyle="round,pad=0.3", facecolor='black', alpha=0.8))
+                
+                # Center content
+                total_queries = sum(ordered_values)
+                ax1.text(0, 0.15, 'SENTIMENT', ha='center', va='center', 
+                        fontsize=16, fontweight='bold', color='#2C3E50')
+                ax1.text(0, 0, f'{total_queries:,}', ha='center', va='center', 
+                        fontsize=24, fontweight='bold', color='#2C3E50')
+                ax1.text(0, -0.15, 'QUERIES', ha='center', va='center', 
+                        fontsize=12, fontweight='bold', color='#7F8C8D')
+                
+                ax1.set_title('Sentiment Distribution', fontsize=18, fontweight='bold', pad=20)
+                
+                # 2. Sentiment Score Distribution
+                ax2.hist(sentiment_scores, bins=30, color='#3498DB', alpha=0.7, edgecolor='white', density=True)
+                ax2.axvline(0, color='#34495E', linestyle='-', linewidth=2, alpha=0.7, label='Neutral Line')
+                ax2.axvline(np.mean(sentiment_scores), color='#E74C3C', linestyle='--', linewidth=2, 
+                           label=f'Average: {np.mean(sentiment_scores):.3f}')
+                
+                ax2.set_xlabel('Sentiment Score', fontsize=14, fontweight='bold')
+                ax2.set_ylabel('Density', fontsize=14, fontweight='bold')
+                ax2.set_title('Sentiment Score Distribution', fontsize=18, fontweight='bold')
+                ax2.legend(fontsize=12, frameon=True, fancybox=True, shadow=True)
+                ax2.grid(True, alpha=0.3)
+                ax2.spines['top'].set_visible(False)
+                ax2.spines['right'].set_visible(False)
+                
+                # Add annotations for sentiment ranges
+                ax2.text(-0.8, ax2.get_ylim()[1]*0.8, 'Very\nNegative', ha='center', va='center', 
+                        fontsize=10, bbox=dict(boxstyle="round,pad=0.3", facecolor="#E74C3C", alpha=0.3))
+                ax2.text(0, ax2.get_ylim()[1]*0.9, 'Neutral', ha='center', va='center', 
+                        fontsize=10, bbox=dict(boxstyle="round,pad=0.3", facecolor="#F39C12", alpha=0.3))
+                ax2.text(0.8, ax2.get_ylim()[1]*0.8, 'Very\nPositive', ha='center', va='center', 
+                        fontsize=10, bbox=dict(boxstyle="round,pad=0.3", facecolor="#27AE60", alpha=0.3))
+                
+                # Add insights box
+                dominant_sentiment = ordered_labels[ordered_values.index(max(ordered_values))]
+                dominant_percentage = (max(ordered_values) / total_queries) * 100
+                avg_sentiment = np.mean(sentiment_scores)
+                
+                # Determine overall mood
+                if avg_sentiment > 0.2:
+                    mood = "Very Positive"
+                elif avg_sentiment > 0.05:
+                    mood = "Positive"
+                elif avg_sentiment > -0.05:
+                    mood = "Neutral"
+                elif avg_sentiment > -0.2:
+                    mood = "Negative"
+                else:
+                    mood = "Very Negative"
+                
+                fig.text(0.5, 0.02, 
+                        f"Key Insights: {dominant_sentiment} sentiment dominates ({dominant_percentage:.1f}%) | "
+                        f"Overall mood: {mood} (Score: {avg_sentiment:.3f}) | "
+                        f"Sentiment spread: {np.std(sentiment_scores):.3f}",
+                        ha='center', va='bottom', fontsize=12, style='italic',
+                        bbox=dict(boxstyle="round,pad=0.5", facecolor="#ECF0F1", alpha=0.9))
+        
+        fig.suptitle('User Sentiment Analysis Dashboard', fontsize=24, fontweight='bold', y=0.95, color='#2C3E50')
+        plt.tight_layout()
         save_plot_to_supabase(plt, "Sentiment analysis plot", chatbot_id, period)
+        
     except Exception as e:
         print(f"Error generating sentiment analysis: {e}")
     finally:
@@ -384,9 +396,14 @@ def generate_sentiment_analysis(user_queries, chatbot_id, period):
 
 
 def generate_chat_volume_plot(conversations, chatbot_id, period):
+    """Enhanced chat volume visualization with trend analysis"""
     try:
+        plt.style.use('default')
+        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(16, 12), dpi=150)
+        fig.patch.set_facecolor('white')
+        
         if period == 0:
-            # For all-time data, show monthly aggregation
+            # Monthly aggregation for all-time data
             monthly_counts = {}
             for convo in conversations:
                 try:
@@ -395,37 +412,72 @@ def generate_chat_volume_plot(conversations, chatbot_id, period):
                     convo_date = datetime.strptime(convo["date_of_convo"], "%Y-%m-%d")
                     month_key = convo_date.strftime("%Y-%m")
                     monthly_counts[month_key] = monthly_counts.get(month_key, 0) + 1
-                except Exception as e:
+                except Exception:
                     continue
 
             if not monthly_counts:
-                plt.figure(figsize=(12, 6))
-                plt.text(0.5, 0.5, 'No conversation data available', 
-                        horizontalalignment='center', fontsize=20)
-                plt.axis('off')
+                for ax in [ax1, ax2]:
+                    ax.text(0.5, 0.5, 'No conversation data available', 
+                           ha='center', va='center', fontsize=16, color='#7F8C8D')
+                    ax.set_xticks([])
+                    ax.set_yticks([])
             else:
                 dates = sorted(monthly_counts.keys())
                 counts = [monthly_counts[date] for date in dates]
+                formatted_dates = [datetime.strptime(date, "%Y-%m").strftime("%b %Y") for date in dates]
 
-                plt.figure(figsize=(14, 8), dpi=150)
-                plt.plot(dates, counts, marker='o', linewidth=2, markersize=6, color='#2E86C1')
-                plt.xlabel('Month', fontsize=14)
-                plt.ylabel('Number of Conversations', fontsize=14)
-                plt.title('Chat Volume Over Time (Monthly)', fontsize=18, pad=20)
-                plt.xticks(rotation=45)
-                plt.grid(True, alpha=0.3)
-                plt.tight_layout()
+                # Main trend line
+                ax1.plot(formatted_dates, counts, marker='o', linewidth=3, markersize=8, 
+                        color='#3498DB', markerfacecolor='#E74C3C', markeredgecolor='white', markeredgewidth=2)
+                ax1.fill_between(formatted_dates, counts, alpha=0.3, color='#3498DB')
+                
+                ax1.set_ylabel('Number of Conversations', fontsize=14, fontweight='bold')
+                ax1.set_title('Chat Volume Trend (Monthly)', fontsize=18, fontweight='bold')
+                ax1.tick_params(axis='x', rotation=45, labelsize=11)
+                ax1.grid(True, alpha=0.3, linestyle='--')
+                ax1.spines['top'].set_visible(False)
+                ax1.spines['right'].set_visible(False)
+                
+                # Add peak and trough annotations
+                max_idx = counts.index(max(counts))
+                min_idx = counts.index(min(counts))
+                
+                ax1.annotate(f'Peak: {max(counts):,}', xy=(max_idx, max(counts)), 
+                           xytext=(max_idx, max(counts) + max(counts)*0.1),
+                           arrowprops=dict(arrowstyle='->', color='#E74C3C', lw=2),
+                           fontsize=12, ha='center', fontweight='bold',
+                           bbox=dict(boxstyle="round,pad=0.3", facecolor="#E74C3C", alpha=0.3))
+                
+                # Bar chart for monthly comparison
+                bars = ax2.bar(formatted_dates, counts, color='#3498DB', alpha=0.7, edgecolor='white', linewidth=2)
+                ax2.set_ylabel('Conversations', fontsize=14, fontweight='bold')
+                ax2.set_title('Monthly Volume Comparison', fontsize=16, fontweight='bold')
+                ax2.tick_params(axis='x', rotation=45, labelsize=11)
+                ax2.grid(True, alpha=0.3, axis='y')
+                ax2.spines['top'].set_visible(False)
+                ax2.spines['right'].set_visible(False)
+                
+                # Highlight top months
+                avg_conversations = np.mean(counts)
+                for bar, count in zip(bars, counts):
+                    if count > avg_conversations:
+                        bar.set_color('#27AE60')
+                        bar.set_alpha(0.8)
+                
+                # Add average line
+                ax2.axhline(avg_conversations, color='#E74C3C', linestyle='--', linewidth=2, 
+                           label=f'Average: {avg_conversations:.1f}')
+                ax2.legend(fontsize=12)
+                
         else:
-            # For specific periods, show daily data
+            # Daily data for specific periods
             current_date = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
             daily_counts = {}
 
-            # Initialize all days in the period with 0 count
             for i in range(period):
                 date_key = (current_date - timedelta(days=i)).strftime("%Y-%m-%d")
                 daily_counts[date_key] = 0
 
-            # Count conversations for each day
             for convo in conversations:
                 try:
                     if "date_of_convo" not in convo:
@@ -433,43 +485,69 @@ def generate_chat_volume_plot(conversations, chatbot_id, period):
                     date_key = convo["date_of_convo"]
                     if date_key in daily_counts:
                         daily_counts[date_key] += 1
-                except Exception as e:
+                except Exception:
                     continue
 
-            # Sort dates and get corresponding counts
             dates = sorted(daily_counts.keys())
             counts = [daily_counts[date] for date in dates]
-
-            # Format dates for display
             formatted_dates = [datetime.strptime(date, "%Y-%m-%d").strftime("%m/%d") for date in dates]
 
-            plt.figure(figsize=(14, 8), dpi=150)
             if sum(counts) == 0:
-                plt.text(0.5, 0.5, f'No conversations in the last {period} days', 
-                        horizontalalignment='center', fontsize=20)
-                plt.axis('off')
+                for ax in [ax1, ax2]:
+                    ax.text(0.5, 0.5, f'No conversations in the last {period} days', 
+                           ha='center', va='center', fontsize=16, color='#7F8C8D')
+                    ax.set_xticks([])
+                    ax.set_yticks([])
             else:
-                plt.plot(formatted_dates, counts, marker='o', linewidth=2, markersize=6, color='#2E86C1')
-                plt.xlabel('Date', fontsize=14)
-                plt.ylabel('Number of Conversations', fontsize=14)
-                plt.title(f'Chat Volume Over Time (Last {period} Days)', fontsize=18, pad=20)
-                plt.xticks(rotation=45)
-                plt.grid(True, alpha=0.3)
-                plt.tight_layout()
-
-                # Add trend information
-                if len(counts) > 1:
-                    # Calculate percentage change from first to last day
-                    first_count = counts[0] if counts[0] > 0 else 1
-                    last_count = counts[-1]
-                    pct_change = ((last_count - first_count) / first_count) * 100
-
-                    trend_text = f"Trend: {pct_change:+.1f}% change"
-                    plt.text(0.02, 0.98, trend_text, transform=plt.gca().transAxes, 
-                            fontsize=12, verticalalignment='top',
-                            bbox=dict(boxstyle="round,pad=0.3", facecolor="lightblue", alpha=0.7))
-
+                # Line plot with trend
+                ax1.plot(formatted_dates, counts, marker='o', linewidth=3, markersize=6, 
+                        color='#3498DB', markerfacecolor='#E74C3C', markeredgecolor='white', markeredgewidth=2)
+                ax1.fill_between(formatted_dates, counts, alpha=0.3, color='#3498DB')
+                
+                ax1.set_ylabel('Number of Conversations', fontsize=14, fontweight='bold')
+                ax1.set_title(f'Daily Chat Volume (Last {period} Days)', fontsize=18, fontweight='bold')
+                ax1.tick_params(axis='x', rotation=45, labelsize=11)
+                ax1.grid(True, alpha=0.3)
+                ax1.spines['top'].set_visible(False)
+                ax1.spines['right'].set_visible(False)
+                
+                # Add trend line
+                if len(counts) > 2:
+                    z = np.polyfit(range(len(counts)), counts, 1)
+                    p = np.poly1d(z)
+                    ax1.plot(formatted_dates, p(range(len(counts))), "--", color='#E74C3C', 
+                            linewidth=2, alpha=0.8, label=f'Trend: {"↗" if z[0] > 0 else "↘"}')
+                    ax1.legend(fontsize=12)
+                
+                # Bar chart
+                bars = ax2.bar(formatted_dates, counts, color='#3498DB', alpha=0.7, edgecolor='white', linewidth=2)
+                ax2.set_xlabel('Date', fontsize=14, fontweight='bold')
+                ax2.set_ylabel('Conversations', fontsize=14, fontweight='bold')
+                ax2.set_title('Daily Volume Distribution', fontsize=16, fontweight='bold')
+                ax2.tick_params(axis='x', rotation=45, labelsize=11)
+                ax2.grid(True, alpha=0.3, axis='y')
+                ax2.spines['top'].set_visible(False)
+                ax2.spines['right'].set_visible(False)
+                
+                # Add value labels on bars
+                for bar, count in zip(bars, counts):
+                    if count > 0:
+                        ax2.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.1,
+                                str(count), ha='center', va='bottom', fontweight='bold')
+                
+                # Calculate and display metrics
+                total_conversations = sum(counts)
+                avg_daily = total_conversations / period
+                max_day = max(counts) if counts else 0
+                
+                metrics_text = f"Total: {total_conversations} | Daily Avg: {avg_daily:.1f} | Peak Day: {max_day}"
+                fig.text(0.5, 0.02, metrics_text, ha='center', va='bottom', fontsize=12, 
+                        bbox=dict(boxstyle="round,pad=0.5", facecolor="#ECF0F1", alpha=0.9))
+        
+        fig.suptitle('Chat Volume Analysis Dashboard', fontsize=24, fontweight='bold', y=0.95, color='#2C3E50')
+        plt.tight_layout()
         save_plot_to_supabase(plt, "Chat volume plot", chatbot_id, period)
+        
     except Exception as e:
         print(f"Error generating chat volume plot: {e}")
     finally:
@@ -477,83 +555,173 @@ def generate_chat_volume_plot(conversations, chatbot_id, period):
 
 
 def generate_peak_hours_activity_plot(conversations, chatbot_id, period):
+    """Enhanced peak hours analysis with detailed time patterns"""
     try:
-        # Initialize 24-hour activity counter
+        plt.style.use('default')
+        fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(20, 16), dpi=150)
+        fig.patch.set_facecolor('white')
+        
+        # Initialize 24-hour and day-of-week activity counters
         hourly_activity = {hour: 0 for hour in range(24)}
-
-        # Count conversations by hour
+        daily_activity = {day: 0 for day in range(7)}  # 0=Monday, 6=Sunday
+        day_names = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+        
+        # Count conversations by time patterns
         for convo in conversations:
             if "messages" not in convo:
                 continue
 
-            messages = convo["messages"]
-            for message in messages:
-                if message.get("role") == "user":
-                    # Extract hour from created_at or use a default pattern
-                    try:
-                        # Try to get timestamp from message or conversation
-                        if "created_at" in convo:
-                            timestamp = datetime.fromisoformat(convo["created_at"].replace('Z', '+00:00'))
-                            hour = timestamp.hour
-                            hourly_activity[hour] += 1
-                        break  # Only count first user message per conversation
-                    except Exception as e:
-                        continue
+            try:
+                if "created_at" in convo:
+                    timestamp = datetime.fromisoformat(convo["created_at"].replace('Z', '+00:00'))
+                    hour = timestamp.hour
+                    day_of_week = timestamp.weekday()
+                    hourly_activity[hour] += 1
+                    daily_activity[day_of_week] += 1
+                elif "date_of_convo" in convo:
+                    # Fallback to date only
+                    date_obj = datetime.strptime(convo["date_of_convo"], "%Y-%m-%d")
+                    day_of_week = date_obj.weekday()
+                    daily_activity[day_of_week] += 1
+            except Exception:
+                continue
 
-        # Create the plot
-        hours = list(range(24))
-        activity_counts = [hourly_activity[hour] for hour in hours]
-
-        plt.figure(figsize=(15, 8), dpi=150)
-
-        if sum(activity_counts) == 0:
-            plt.text(0.5, 0.5, 'No activity data available for peak hours analysis', 
-                    horizontalalignment='center', fontsize=16)
-            plt.axis('off')
+        total_activity = sum(hourly_activity.values())
+        
+        if total_activity == 0:
+            for ax in [ax1, ax2, ax3, ax4]:
+                ax.text(0.5, 0.5, 'No activity data available', 
+                       ha='center', va='center', fontsize=16, color='#7F8C8D')
+                ax.set_xticks([])
+                ax.set_yticks([])
         else:
-            # Create bar chart
-            bars = plt.bar(hours, activity_counts, color='#3498db', alpha=0.7, edgecolor='#2980b9')
-
+            # 1. Hourly Activity Pattern
+            hours = list(range(24))
+            activity_counts = [hourly_activity[hour] for hour in hours]
+            
+            bars = ax1.bar(hours, activity_counts, color='#3498DB', alpha=0.7, edgecolor='white', linewidth=1)
+            
             # Highlight peak hour
-            peak_hour = hours[activity_counts.index(max(activity_counts))]
-            bars[peak_hour].set_color('#e74c3c')
-
-            # Format the plot
-            plt.xlabel('Hour of Day (24-hour format)', fontsize=14)
-            plt.ylabel('Number of Conversations', fontsize=14)
-            plt.title(f'Peak Hours Activity Analysis ({period} days)' if period > 0 else 'Peak Hours Activity Analysis (All Time)', 
-                     fontsize=18, pad=20)
-
-            # Set x-axis ticks and labels with better spacing
-            plt.xticks(range(0, 24, 2), [f'{h:02d}:00' for h in range(0, 24, 2)], rotation=45)
-            plt.grid(True, alpha=0.3, axis='y')
-
-            # Adjust y-axis to give more space for annotations
-            plt.ylim(0, max(activity_counts) * 1.3)
-
-            # Add peak hour annotation
-            peak_count = max(activity_counts)
-            plt.annotate(f'Peak Hour: {peak_hour:02d}:00\n({peak_count} conversations)', 
-                        xy=(peak_hour, peak_count), 
-                        xytext=(peak_hour + 2, peak_count + max(activity_counts) * 0.1),
-                        arrowprops=dict(arrowstyle='->', color='red', lw=1.5),
-                        fontsize=12, ha='center',
-                        bbox=dict(boxstyle="round,pad=0.3", facecolor="yellow", alpha=0.7))
-
-            # Add insights
-            total_conversations = sum(activity_counts)
-            business_hours_activity = sum(activity_counts[9:17])  # 9 AM to 5 PM
-            business_hours_percentage = (business_hours_activity / total_conversations * 100) if total_conversations > 0 else 0
-
-            insights_text = f"Business Hours (9AM-5PM): {business_hours_percentage:.1f}% of activity"
-            plt.text(0.02, 0.98, insights_text, transform=plt.gca().transAxes, 
-                    fontsize=11, verticalalignment='top',
-                    bbox=dict(boxstyle="round,pad=0.3", facecolor="lightgreen", alpha=0.7))
-
-            plt.tight_layout()
-
+            if max(activity_counts) > 0:
+                peak_hour = hours[activity_counts.index(max(activity_counts))]
+                bars[peak_hour].set_color('#E74C3C')
+                bars[peak_hour].set_alpha(0.9)
+            
+            ax1.set_xlabel('Hour of Day', fontsize=12, fontweight='bold')
+            ax1.set_ylabel('Number of Conversations', fontsize=12, fontweight='bold')
+            ax1.set_title('Hourly Activity Pattern', fontsize=16, fontweight='bold')
+            ax1.set_xticks(range(0, 24, 2))
+            ax1.set_xticklabels([f'{h:02d}:00' for h in range(0, 24, 2)], rotation=45)
+            ax1.grid(True, alpha=0.3, axis='y')
+            ax1.spines['top'].set_visible(False)
+            ax1.spines['right'].set_visible(False)
+            
+            # 2. Day of Week Activity
+            day_counts = [daily_activity[day] for day in range(7)]
+            day_bars = ax2.bar(day_names, day_counts, color='#27AE60', alpha=0.7, edgecolor='white', linewidth=1)
+            
+            # Highlight busiest day
+            if max(day_counts) > 0:
+                busiest_day_idx = day_counts.index(max(day_counts))
+                day_bars[busiest_day_idx].set_color('#E74C3C')
+                day_bars[busiest_day_idx].set_alpha(0.9)
+            
+            ax2.set_ylabel('Number of Conversations', fontsize=12, fontweight='bold')
+            ax2.set_title('Day of Week Activity', fontsize=16, fontweight='bold')
+            ax2.tick_params(axis='x', rotation=45)
+            ax2.grid(True, alpha=0.3, axis='y')
+            ax2.spines['top'].set_visible(False)
+            ax2.spines['right'].set_visible(False)
+            
+            # Add value labels
+            for bar, count in zip(day_bars, day_counts):
+                if count > 0:
+                    ax2.text(bar.get_x() + bar.get_width()/2, bar.get_height() + max(day_counts)*0.02,
+                            str(count), ha='center', va='bottom', fontweight='bold')
+            
+            # 3. Business Hours Analysis
+            business_hours = list(range(9, 17))  # 9 AM to 5 PM
+            after_hours = list(range(0, 9)) + list(range(17, 24))
+            
+            business_activity = sum(hourly_activity[hour] for hour in business_hours)
+            after_hours_activity = sum(hourly_activity[hour] for hour in after_hours)
+            
+            time_periods = ['Business Hours\n(9AM-5PM)', 'After Hours\n(5PM-9AM)']
+            time_counts = [business_activity, after_hours_activity]
+            time_colors = ['#3498DB', '#E67E22']
+            
+            if sum(time_counts) > 0:
+                wedges, texts, autotexts = ax3.pie(time_counts, labels=time_periods, colors=time_colors,
+                                                  autopct='%1.1f%%', startangle=90,
+                                                  textprops={'fontsize': 12, 'fontweight': 'bold'},
+                                                  wedgeprops=dict(width=0.6, edgecolor='white', linewidth=2))
+                
+                # Center text
+                ax3.text(0, 0, f'{sum(time_counts):,}\nTotal', ha='center', va='center', 
+                        fontsize=14, fontweight='bold', color='#2C3E50')
+                
+            ax3.set_title('Business vs After Hours', fontsize=16, fontweight='bold')
+            
+            # 4. Peak Activity Insights
+            ax4.axis('off')
+            ax4.set_title('Activity Insights', fontsize=16, fontweight='bold', y=0.95)
+            
+            # Calculate insights
+            peak_hour = hours[activity_counts.index(max(activity_counts))] if max(activity_counts) > 0 else 0
+            busiest_day = day_names[day_counts.index(max(day_counts))] if max(day_counts) > 0 else "N/A"
+            business_percentage = (business_activity / total_activity * 100) if total_activity > 0 else 0
+            
+            # Time period classification
+            if 6 <= peak_hour <= 11:
+                peak_period = "Morning"
+            elif 12 <= peak_hour <= 17:
+                peak_period = "Afternoon"
+            elif 18 <= peak_hour <= 22:
+                peak_period = "Evening"
+            else:
+                peak_period = "Night/Early Morning"
+            
+            insights = [
+                ('Peak Hour', f'{peak_hour:02d}:00 ({peak_period})'),
+                ('Peak Activity', f'{max(activity_counts)} conversations'),
+                ('Busiest Day', busiest_day),
+                ('Business Hours Activity', f'{business_percentage:.1f}%'),
+                ('Most Active Period', f'{peak_period} hours'),
+                ('Weekend Activity', f'{(day_counts[5] + day_counts[6])/(sum(day_counts))*100:.1f}%' if sum(day_counts) > 0 else 'N/A')
+            ]
+            
+            y_start = 0.8
+            for i, (metric, value) in enumerate(insights):
+                y_pos = y_start - (i * 0.12)
+                ax4.text(0.05, y_pos, f'• {metric}:', fontsize=13, fontweight='bold', 
+                        transform=ax4.transAxes, va='center')
+                ax4.text(0.95, y_pos, value, fontsize=13, transform=ax4.transAxes, 
+                        va='center', ha='right', color='#2C3E50',
+                        bbox=dict(boxstyle="round,pad=0.4", facecolor="#ECF0F1", alpha=0.8))
+            
+            # Recommendation box
+            if business_percentage < 50:
+                recommendation = "Consider extending support hours for after-hours users"
+                rec_color = "#E74C3C"
+            elif peak_hour < 9 or peak_hour > 17:
+                recommendation = "Peak activity outside business hours - optimize staffing"
+                rec_color = "#F39C12"
+            else:
+                recommendation = "Good alignment with business hours"
+                rec_color = "#27AE60"
+            
+            ax4.text(0.5, 0.05, f'💡 {recommendation}', transform=ax4.transAxes, 
+                    ha='center', va='center', fontsize=12, style='italic',
+                    bbox=dict(boxstyle="round,pad=0.5", facecolor=rec_color, alpha=0.2, 
+                             edgecolor=rec_color, linewidth=2))
+        
+        period_text = f"({period} days)" if period > 0 else "(All Time)"
+        fig.suptitle(f'Peak Hours & Activity Patterns {period_text}', 
+                    fontsize=24, fontweight='bold', y=0.95, color='#2C3E50')
+        
+        plt.tight_layout()
         save_plot_to_supabase(plt, "Peak hours activity plot", chatbot_id, period)
-
+        
     except Exception as e:
         print(f"Error generating peak hours activity plot: {e}")
     finally:
@@ -561,279 +729,214 @@ def generate_peak_hours_activity_plot(conversations, chatbot_id, period):
 
 
 def generate_conversation_quality_analysis(conversations, chatbot_id, period):
+    """Comprehensive conversation quality analysis with detailed metrics"""
     try:
+        plt.style.use('default')
+        fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(20, 16), dpi=150)
+        fig.patch.set_facecolor('white')
+        
         if not conversations:
-            plt.figure(figsize=(16, 12), dpi=150)
-            plt.text(0.5, 0.5, 'No conversation data available for quality analysis', 
-                    horizontalalignment='center', fontsize=16)
-            plt.axis('off')
-            save_plot_to_supabase(plt, "Conversation quality analysis plot", chatbot_id, period)
-            return
-
-        # Analyze conversation quality metrics
-        conversation_metrics = []
-        unanswered_count = 0
-        total_word_count = 0
-        question_patterns = ['?', 'how', 'what', 'when', 'where', 'why', 'can you', 'could you', 'please']
-        
-        for convo in conversations:
-            if "messages" not in convo:
-                continue
-
-            messages = convo["messages"]
-            user_messages = [msg for msg in messages if msg.get("role") == "user"]
-            assistant_messages = [msg for msg in messages if msg.get("role") == "assistant"]
-            
-            if not user_messages:
-                continue
-
-            # Calculate quality metrics for this conversation
-            total_messages = len(messages)
-            user_msg_count = len(user_messages)
-            assistant_msg_count = len(assistant_messages)
-            
-            # Calculate average message lengths
-            user_word_counts = [len(msg.get("content", "").split()) for msg in user_messages]
-            assistant_word_counts = [len(msg.get("content", "").split()) for msg in assistant_messages]
-            
-            avg_user_words = np.mean(user_word_counts) if user_word_counts else 0
-            avg_assistant_words = np.mean(assistant_word_counts) if assistant_word_counts else 0
-            
-            # Check for questions in user messages
-            questions_count = 0
-            for msg in user_messages:
-                content = msg.get("content", "").lower()
-                if any(pattern in content for pattern in question_patterns):
-                    questions_count += 1
-            
-            # Check for unanswered queries (Oops responses)
-            has_unanswered = any("Oops" in msg.get("content", "") for msg in assistant_messages)
-            if has_unanswered:
-                unanswered_count += 1
-            
-            # Calculate conversation depth score
-            interaction_ratio = assistant_msg_count / user_msg_count if user_msg_count > 0 else 0
-            question_ratio = questions_count / user_msg_count if user_msg_count > 0 else 0
-            
-            # Quality score calculation (0-100)
-            quality_score = min(100, (
-                (min(total_messages, 20) / 20 * 30) +  # Message volume (30%)
-                (min(interaction_ratio, 2) / 2 * 25) +  # Response rate (25%)
-                (min(avg_assistant_words, 50) / 50 * 20) +  # Response depth (20%)
-                (question_ratio * 15) +  # Question engagement (15%)
-                (0 if has_unanswered else 10)  # No unanswered queries (10%)
-            ))
-            
-            conversation_metrics.append({
-                'total_messages': total_messages,
-                'user_messages': user_msg_count,
-                'assistant_messages': assistant_msg_count,
-                'quality_score': quality_score,
-                'avg_user_words': avg_user_words,
-                'avg_assistant_words': avg_assistant_words,
-                'questions_count': questions_count,
-                'has_unanswered': has_unanswered,
-                'interaction_ratio': interaction_ratio
-            })
-            
-            total_word_count += sum(user_word_counts) + sum(assistant_word_counts)
-
-        if not conversation_metrics:
-            plt.figure(figsize=(16, 12), dpi=150)
-            plt.text(0.5, 0.5, 'No valid conversation data for quality analysis', 
-                    horizontalalignment='center', fontsize=16)
-            plt.axis('off')
-            save_plot_to_supabase(plt, "Conversation quality analysis plot", chatbot_id, period)
-            return
-
-        # Create comprehensive quality analysis dashboard with improved spacing
-        fig = plt.figure(figsize=(24, 20), dpi=150)
-        gs = fig.add_gridspec(3, 3, hspace=0.4, wspace=0.35, 
-                             left=0.08, right=0.95, top=0.92, bottom=0.08)
-
-        # 1. Quality Score Distribution (top-left)
-        ax1 = fig.add_subplot(gs[0, 0])
-        quality_scores = [metric['quality_score'] for metric in conversation_metrics]
-        
-        # Create quality categories
-        excellent = sum(1 for score in quality_scores if score >= 80)
-        good = sum(1 for score in quality_scores if 60 <= score < 80)
-        fair = sum(1 for score in quality_scores if 40 <= score < 60)
-        poor = sum(1 for score in quality_scores if score < 40)
-        
-        quality_categories = ['Excellent\n(80-100)', 'Good\n(60-79)', 'Fair\n(40-59)', 'Poor\n(<40)']
-        quality_counts = [excellent, good, fair, poor]
-        colors = ['#27AE60', '#3498DB', '#F39C12', '#E74C3C']
-        
-        bars = ax1.bar(quality_categories, quality_counts, color=colors, alpha=0.8)
-        ax1.set_ylabel('Number of Conversations', fontsize=12)
-        ax1.set_title('Conversation Quality Distribution', fontsize=14, fontweight='bold')
-        
-        # Add value labels
-        for bar, count in zip(bars, quality_counts):
-            if count > 0:
-                ax1.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.5, 
-                        str(count), ha='center', va='bottom', fontweight='bold')
-
-        # 2. Message Depth Analysis (top-center)
-        ax2 = fig.add_subplot(gs[0, 1])
-        
-        message_counts = [metric['total_messages'] for metric in conversation_metrics]
-        ax2.hist(message_counts, bins=15, color='#9B59B6', alpha=0.7, edgecolor='white')
-        
-        avg_messages = np.mean(message_counts)
-        ax2.axvline(avg_messages, color='red', linestyle='--', linewidth=2,
-                   label=f'Average: {avg_messages:.1f}')
-        
-        ax2.set_xlabel('Messages per Conversation', fontsize=12)
-        ax2.set_ylabel('Number of Conversations', fontsize=12)
-        ax2.set_title('Conversation Depth Analysis', fontsize=14, fontweight='bold')
-        ax2.legend()
-        ax2.grid(True, alpha=0.3)
-
-        # 3. Response Effectiveness (top-right)
-        ax3 = fig.add_subplot(gs[0, 2])
-        
-        response_ratios = [metric['interaction_ratio'] for metric in conversation_metrics]
-        excellent_response = sum(1 for ratio in response_ratios if ratio >= 1.0)
-        good_response = sum(1 for ratio in response_ratios if 0.8 <= ratio < 1.0)
-        poor_response = sum(1 for ratio in response_ratios if ratio < 0.8)
-        
-        response_labels = ['Excellent\n(≥1.0)', 'Good\n(0.8-0.99)', 'Needs Work\n(<0.8)']
-        response_counts = [excellent_response, good_response, poor_response]
-        response_colors = ['#2ECC71', '#F39C12', '#E74C3C']
-        
-        wedges, texts, autotexts = ax3.pie(response_counts, labels=response_labels, colors=response_colors,
-                                          autopct='%1.1f%%', startangle=90,
-                                          textprops={'fontsize': 10})
-        ax3.set_title('Response Effectiveness', fontsize=14, fontweight='bold')
-
-        # 4. Word Count Analysis (middle-left)
-        ax4 = fig.add_subplot(gs[1, 0])
-        
-        user_word_counts = [metric['avg_user_words'] for metric in conversation_metrics]
-        assistant_word_counts = [metric['avg_assistant_words'] for metric in conversation_metrics]
-        
-        ax4.scatter(user_word_counts, assistant_word_counts, alpha=0.6, color='#3498DB', s=50)
-        ax4.set_xlabel('Avg User Words per Message', fontsize=12)
-        ax4.set_ylabel('Avg Assistant Words per Message', fontsize=12)
-        ax4.set_title('Message Length Correlation', fontsize=14, fontweight='bold')
-        ax4.grid(True, alpha=0.3)
-        
-        # Add trend line
-        if len(user_word_counts) > 1:
-            z = np.polyfit(user_word_counts, assistant_word_counts, 1)
-            p = np.poly1d(z)
-            ax4.plot(sorted(user_word_counts), p(sorted(user_word_counts)), "r--", alpha=0.8)
-
-        # 5. Question Engagement Analysis (middle-center)
-        ax5 = fig.add_subplot(gs[1, 1])
-        
-        total_questions = sum(metric['questions_count'] for metric in conversation_metrics)
-        question_conversations = sum(1 for metric in conversation_metrics if metric['questions_count'] > 0)
-        
-        engagement_data = {
-            'High Question\nEngagement\n(3+ questions)': sum(1 for metric in conversation_metrics if metric['questions_count'] >= 3),
-            'Moderate\nEngagement\n(1-2 questions)': sum(1 for metric in conversation_metrics if 1 <= metric['questions_count'] <= 2),
-            'Low Engagement\n(No questions)': sum(1 for metric in conversation_metrics if metric['questions_count'] == 0)
-        }
-        
-        engagement_colors = ['#27AE60', '#F39C12', '#95A5A6']
-        bars = ax5.bar(engagement_data.keys(), engagement_data.values(), color=engagement_colors, alpha=0.8)
-        ax5.set_ylabel('Number of Conversations', fontsize=12)
-        ax5.set_title('Question Engagement Levels', fontsize=14, fontweight='bold')
-        ax5.tick_params(axis='x', rotation=0)
-        
-        # Add percentages
-        total_convos = len(conversation_metrics)
-        for bar, count in zip(bars, engagement_data.values()):
-            if count > 0:
-                percentage = (count / total_convos) * 100
-                ax5.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.5, 
-                        f'{count}\n({percentage:.1f}%)', ha='center', va='bottom', fontweight='bold')
-
-        # 6. Problem Resolution Rate (middle-right)
-        ax6 = fig.add_subplot(gs[1, 2])
-        
-        resolved = len(conversation_metrics) - unanswered_count
-        resolution_data = ['Resolved', 'Unresolved']
-        resolution_counts = [resolved, unanswered_count]
-        resolution_colors = ['#27AE60', '#E74C3C']
-        
-        if sum(resolution_counts) > 0:
-            wedges, texts, autotexts = ax6.pie(resolution_counts, labels=resolution_data, colors=resolution_colors,
-                                              autopct='%1.1f%%', startangle=90,
-                                              textprops={'fontsize': 12, 'fontweight': 'bold'})
-            
-            # Add center text
-            resolution_rate = (resolved / len(conversation_metrics)) * 100
-            ax6.text(0, 0, f'{resolution_rate:.1f}%\nResolution\nRate', ha='center', va='center', 
-                    fontsize=12, fontweight='bold', color='#2C3E50')
-        
-        ax6.set_title('Problem Resolution Rate', fontsize=14, fontweight='bold')
-
-        # 7. Comprehensive Quality Insights (bottom row)
-        ax7 = fig.add_subplot(gs[2, :])
-        ax7.axis('off')
-        
-        # Calculate key metrics
-        avg_quality_score = np.mean(quality_scores)
-        avg_total_messages = np.mean([metric['total_messages'] for metric in conversation_metrics])
-        avg_response_ratio = np.mean(response_ratios)
-        question_engagement_rate = (question_conversations / len(conversation_metrics)) * 100
-        resolution_percentage = (resolved / len(conversation_metrics)) * 100
-        
-        # Determine overall grade
-        if avg_quality_score >= 80:
-            overall_grade = "A+ (Excellent)"
-            grade_color = "#27AE60"
-        elif avg_quality_score >= 70:
-            overall_grade = "A (Very Good)"
-            grade_color = "#2ECC71"
-        elif avg_quality_score >= 60:
-            overall_grade = "B (Good)"
-            grade_color = "#3498DB"
-        elif avg_quality_score >= 50:
-            overall_grade = "C (Fair)"
-            grade_color = "#F39C12"
+            for ax in [ax1, ax2, ax3, ax4]:
+                ax.text(0.5, 0.5, 'No conversation data available', 
+                       ha='center', va='center', fontsize=16, color='#7F8C8D')
+                ax.set_xticks([])
+                ax.set_yticks([])
         else:
-            overall_grade = "D (Needs Improvement)"
-            grade_color = "#E74C3C"
+            # Analyze conversation quality metrics
+            quality_scores = []
+            message_depths = []
+            resolution_status = []
+            response_ratios = []
+            unanswered_count = 0
+            
+            for convo in conversations:
+                if "messages" not in convo:
+                    continue
 
-        insights_text = f"""
-CONVERSATION QUALITY ANALYSIS REPORT
+                messages = convo["messages"]
+                user_messages = [msg for msg in messages if msg.get("role") == "user"]
+                assistant_messages = [msg for msg in messages if msg.get("role") == "assistant"]
+                
+                if not user_messages:
+                    continue
 
-Overall Quality Grade: {overall_grade} (Score: {avg_quality_score:.1f}/100)
-
-Key Performance Indicators:
-   • Average Messages per Conversation: {avg_total_messages:.1f}
-   • Response Effectiveness Ratio: {avg_response_ratio:.2f}:1
-   • Question Engagement Rate: {question_engagement_rate:.1f}%
-   • Problem Resolution Rate: {resolution_percentage:.1f}%
-   • Total Word Count Processed: {total_word_count:,} words
-
-Quality Breakdown:
-   • Excellent Conversations: {excellent} ({excellent/len(conversation_metrics)*100:.1f}%)
-   • Good Conversations: {good} ({good/len(conversation_metrics)*100:.1f}%)
-   • Fair Conversations: {fair} ({fair/len(conversation_metrics)*100:.1f}%)
-   • Poor Conversations: {poor} ({poor/len(conversation_metrics)*100:.1f}%)
-
-Strategic Recommendations:
-   • {"Focus on improving response depth and engagement" if avg_quality_score < 70 else "Maintain current high-quality standards"}
-   • {"Reduce unanswered queries to improve resolution rate" if resolution_percentage < 90 else "Excellent problem resolution performance"}
-   • {"Encourage more question-based interactions" if question_engagement_rate < 60 else "Strong question engagement levels"}
-        """
-
-        ax7.text(0.02, 0.98, insights_text, transform=ax7.transAxes, fontsize=12,
-                verticalalignment='top', fontfamily='DejaVu Sans',
-                bbox=dict(boxstyle="round,pad=1.0", facecolor=grade_color, alpha=0.15, 
-                         edgecolor=grade_color, linewidth=2))
-
-        fig.suptitle(f'Conversation Quality Analysis Dashboard ({period} days)' if period > 0 else 'Conversation Quality Analysis Dashboard (All Time)', 
-                     fontsize=28, fontweight='bold', y=0.96, pad=20)
-
+                # Calculate metrics
+                total_messages = len(messages)
+                user_count = len(user_messages)
+                assistant_count = len(assistant_messages)
+                response_ratio = assistant_count / user_count if user_count > 0 else 0
+                
+                # Check for unanswered queries
+                has_unanswered = any("Oops" in msg.get("content", "") for msg in assistant_messages)
+                resolution_status.append("Resolved" if not has_unanswered else "Unresolved")
+                if has_unanswered:
+                    unanswered_count += 1
+                
+                # Quality score (0-100)
+                quality_score = min(100, (
+                    (min(total_messages, 20) / 20 * 30) +  # Conversation depth
+                    (min(response_ratio, 2) / 2 * 25) +    # Response coverage
+                    (30 if not has_unanswered else 0) +    # Resolution success
+                    (15 if total_messages > 5 else total_messages * 3)  # Engagement level
+                ))
+                
+                quality_scores.append(quality_score)
+                message_depths.append(total_messages)
+                response_ratios.append(response_ratio)
+            
+            if not quality_scores:
+                for ax in [ax1, ax2, ax3, ax4]:
+                    ax.text(0.5, 0.5, 'No valid conversation data', 
+                           ha='center', va='center', fontsize=16, color='#7F8C8D')
+                    ax.set_xticks([])
+                    ax.set_yticks([])
+            else:
+                # 1. Quality Score Distribution
+                score_ranges = ['Excellent\n(80-100)', 'Good\n(60-79)', 'Fair\n(40-59)', 'Poor\n(0-39)']
+                score_counts = [
+                    sum(1 for score in quality_scores if score >= 80),
+                    sum(1 for score in quality_scores if 60 <= score < 80),
+                    sum(1 for score in quality_scores if 40 <= score < 60),
+                    sum(1 for score in quality_scores if score < 40)
+                ]
+                score_colors = ['#27AE60', '#3498DB', '#F39C12', '#E74C3C']
+                
+                bars1 = ax1.bar(score_ranges, score_counts, color=score_colors, alpha=0.8, 
+                               edgecolor='white', linewidth=2)
+                ax1.set_ylabel('Number of Conversations', fontsize=12, fontweight='bold')
+                ax1.set_title('Quality Score Distribution', fontsize=16, fontweight='bold')
+                ax1.grid(True, alpha=0.3, axis='y')
+                ax1.spines['top'].set_visible(False)
+                ax1.spines['right'].set_visible(False)
+                
+                # Add percentage labels
+                total_convos = len(quality_scores)
+                for bar, count in zip(bars1, score_counts):
+                    if count > 0:
+                        percentage = (count / total_convos) * 100
+                        ax1.text(bar.get_x() + bar.get_width()/2, bar.get_height() + max(score_counts)*0.02,
+                                f'{count}\n({percentage:.1f}%)', ha='center', va='bottom', 
+                                fontweight='bold', fontsize=10)
+                
+                # 2. Message Depth vs Quality
+                ax2.scatter(message_depths, quality_scores, alpha=0.6, s=60, 
+                           c=quality_scores, cmap='RdYlGn', edgecolors='white', linewidth=1)
+                
+                # Add trend line
+                if len(message_depths) > 2:
+                    z = np.polyfit(message_depths, quality_scores, 1)
+                    p = np.poly1d(z)
+                    x_trend = np.linspace(min(message_depths), max(message_depths), 100)
+                    ax2.plot(x_trend, p(x_trend), "--", color='#E74C3C', linewidth=2, alpha=0.8)
+                
+                ax2.set_xlabel('Total Messages per Conversation', fontsize=12, fontweight='bold')
+                ax2.set_ylabel('Quality Score', fontsize=12, fontweight='bold')
+                ax2.set_title('Message Depth vs Quality Correlation', fontsize=16, fontweight='bold')
+                ax2.grid(True, alpha=0.3)
+                ax2.spines['top'].set_visible(False)
+                ax2.spines['right'].set_visible(False)
+                
+                # Add correlation coefficient
+                correlation = np.corrcoef(message_depths, quality_scores)[0, 1] if len(message_depths) > 1 else 0
+                ax2.text(0.05, 0.95, f'Correlation: {correlation:.3f}', transform=ax2.transAxes,
+                        bbox=dict(boxstyle="round,pad=0.3", facecolor="#ECF0F1", alpha=0.8),
+                        fontsize=11, fontweight='bold')
+                
+                # 3. Resolution Rate Analysis
+                resolved_count = resolution_status.count("Resolved")
+                unresolved_count = resolution_status.count("Unresolved")
+                
+                if resolved_count + unresolved_count > 0:
+                    resolution_data = [resolved_count, unresolved_count]
+                    resolution_labels = ['Resolved', 'Unresolved']
+                    resolution_colors = ['#27AE60', '#E74C3C']
+                    
+                    wedges, texts, autotexts = ax3.pie(resolution_data, labels=resolution_labels, 
+                                                      colors=resolution_colors, autopct='%1.1f%%',
+                                                      startangle=90, textprops={'fontsize': 12, 'fontweight': 'bold'},
+                                                      wedgeprops=dict(width=0.6, edgecolor='white', linewidth=2))
+                    
+                    # Center text
+                    resolution_rate = (resolved_count / (resolved_count + unresolved_count)) * 100
+                    ax3.text(0, 0, f'{resolution_rate:.1f}%\nResolution\nRate', ha='center', va='center', 
+                            fontsize=14, fontweight='bold', color='#2C3E50')
+                
+                ax3.set_title('Problem Resolution Analysis', fontsize=16, fontweight='bold')
+                
+                # 4. Key Metrics Dashboard
+                ax4.axis('off')
+                ax4.set_title('Quality Metrics Summary', fontsize=16, fontweight='bold', y=0.95)
+                
+                # Calculate key metrics
+                avg_quality = np.mean(quality_scores)
+                avg_messages = np.mean(message_depths)
+                avg_response_ratio = np.mean(response_ratios)
+                resolution_percentage = (resolved_count / len(resolution_status)) * 100 if resolution_status else 0
+                
+                # Determine overall grade
+                if avg_quality >= 80:
+                    grade = "A+ (Excellent)"
+                    grade_color = "#27AE60"
+                elif avg_quality >= 70:
+                    grade = "A (Very Good)"
+                    grade_color = "#2ECC71"
+                elif avg_quality >= 60:
+                    grade = "B (Good)"
+                    grade_color = "#3498DB"
+                elif avg_quality >= 50:
+                    grade = "C (Fair)"
+                    grade_color = "#F39C12"
+                else:
+                    grade = "D (Needs Improvement)"
+                    grade_color = "#E74C3C"
+                
+                metrics = [
+                    ('Overall Quality Grade', grade),
+                    ('Average Quality Score', f'{avg_quality:.1f}/100'),
+                    ('Average Messages/Conversation', f'{avg_messages:.1f}'),
+                    ('Response Coverage Ratio', f'{avg_response_ratio:.2f}:1'),
+                    ('Resolution Success Rate', f'{resolution_percentage:.1f}%'),
+                    ('Total Conversations Analyzed', f'{len(quality_scores):,}')
+                ]
+                
+                y_start = 0.8
+                for i, (metric, value) in enumerate(metrics):
+                    y_pos = y_start - (i * 0.12)
+                    ax4.text(0.05, y_pos, f'• {metric}:', fontsize=13, fontweight='bold', 
+                            transform=ax4.transAxes, va='center')
+                    
+                    # Color code the grade
+                    text_color = grade_color if i == 0 else '#2C3E50'
+                    box_color = grade_color if i == 0 else "#ECF0F1"
+                    
+                    ax4.text(0.95, y_pos, value, fontsize=13, transform=ax4.transAxes, 
+                            va='center', ha='right', color=text_color, fontweight='bold' if i == 0 else 'normal',
+                            bbox=dict(boxstyle="round,pad=0.4", facecolor=box_color, alpha=0.3 if i == 0 else 0.8))
+                
+                # Recommendations
+                recommendations = []
+                if avg_quality < 70:
+                    recommendations.append("Focus on improving response quality and depth")
+                if resolution_percentage < 85:
+                    recommendations.append("Reduce unanswered queries to improve resolution rate")
+                if avg_response_ratio < 0.8:
+                    recommendations.append("Ensure all user queries receive responses")
+                if not recommendations:
+                    recommendations.append("Excellent performance - maintain current standards")
+                
+                rec_text = "Recommendations:\n" + "\n".join(f"• {rec}" for rec in recommendations[:3])
+                ax4.text(0.5, 0.05, rec_text, transform=ax4.transAxes, ha='center', va='bottom', 
+                        fontsize=11, style='italic',
+                        bbox=dict(boxstyle="round,pad=0.5", facecolor="#F8F9FA", alpha=0.9, 
+                                 edgecolor='#BDC3C7', linewidth=1))
+        
+        period_text = f"({period} days)" if period > 0 else "(All Time)"
+        fig.suptitle(f'Conversation Quality Analysis Dashboard {period_text}', 
+                    fontsize=24, fontweight='bold', y=0.95, color='#2C3E50')
+        
+        plt.tight_layout()
         save_plot_to_supabase(plt, "Conversation quality analysis plot", chatbot_id, period)
-
+        
     except Exception as e:
         print(f"Error generating conversation quality analysis: {e}")
     finally:
@@ -841,255 +944,204 @@ Strategic Recommendations:
 
 
 def generate_user_engagement_funnel(conversations, chatbot_id, period):
+    """Advanced user engagement analysis with conversion funnel"""
     try:
+        plt.style.use('default')
+        fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(20, 16), dpi=150)
+        fig.patch.set_facecolor('white')
+        
         if not conversations:
-            plt.figure(figsize=(16, 12), dpi=150)
-            plt.text(0.5, 0.5, 'No engagement data available', 
-                    horizontalalignment='center', fontsize=16)
-            plt.axis('off')
-            save_plot_to_supabase(plt, "User engagement funnel plot", chatbot_id, period)
-            return
-
-        # Advanced engagement metrics
-        engagement_stages = {
-            "Initial Contact": 0,
-            "Engaged (2-4 msgs)": 0,
-            "Active (5-9 msgs)": 0,
-            "Highly Engaged (10-19 msgs)": 0,
-            "Power Users (20+ msgs)": 0
-        }
-
-        conversation_data = []
-        session_durations = []
-        message_intervals = []
-
-        for convo in conversations:
-            if "messages" not in convo:
-                continue
-
-            messages = convo["messages"]
-            user_messages = [msg for msg in messages if msg.get("role") == "user"]
-            user_message_count = len(user_messages)
-            
-            if user_message_count == 0:
-                continue
-
-            conversation_data.append({
-                'user_messages': user_message_count,
-                'total_messages': len(messages),
-                'conversation_id': convo.get('id', 'unknown')
-            })
-
-            # Categorize engagement levels
-            if user_message_count >= 1:
-                engagement_stages["Initial Contact"] += 1
-            if 2 <= user_message_count <= 4:
-                engagement_stages["Engaged (2-4 msgs)"] += 1
-            elif 5 <= user_message_count <= 9:
-                engagement_stages["Active (5-9 msgs)"] += 1
-            elif 10 <= user_message_count <= 19:
-                engagement_stages["Highly Engaged (10-19 msgs)"] += 1
-            elif user_message_count >= 20:
-                engagement_stages["Power Users (20+ msgs)"] += 1
-
-        if not conversation_data:
-            plt.figure(figsize=(16, 12), dpi=150)
-            plt.text(0.5, 0.5, 'No valid conversation data available', 
-                    horizontalalignment='center', fontsize=16)
-            plt.axis('off')
-            save_plot_to_supabase(plt, "User engagement funnel plot", chatbot_id, period)
-            return
-
-        # Create comprehensive engagement dashboard with better spacing
-        fig = plt.figure(figsize=(24, 20), dpi=150)
-        gs = fig.add_gridspec(3, 3, hspace=0.4, wspace=0.4, 
-                             left=0.08, right=0.95, top=0.92, bottom=0.08)
-
-        # 1. Main Engagement Funnel (top row, spans 2 columns)
-        ax1 = fig.add_subplot(gs[0, :2])
-        
-        stages = list(engagement_stages.keys())
-        values = list(engagement_stages.values())
-        colors = ['#1ABC9C', '#3498DB', '#9B59B6', '#E67E22', '#E74C3C']
-        
-        # Create funnel effect with trapezoids
-        y_positions = np.arange(len(stages))[::-1]  # Reverse order for funnel effect
-        
-        for i, (stage, value, color) in enumerate(zip(stages, values, colors)):
-            if value > 0:
-                # Calculate width for funnel effect
-                max_width = max(values)
-                width = (value / max_width) * 0.8 + 0.2  # Minimum 20% width
-                
-                # Create trapezoid-like bars
-                ax1.barh(y_positions[i], value, height=0.6, color=color, alpha=0.8, 
-                        edgecolor='white', linewidth=2)
-                
-                # Add labels
-                ax1.text(value + max(values) * 0.02, y_positions[i], 
-                        f'{value:,} users ({value/values[0]*100:.1f}%)', 
-                        va='center', fontsize=12, fontweight='bold')
-
-        ax1.set_yticks(y_positions)
-        ax1.set_yticklabels(stages, fontsize=12)
-        ax1.set_xlabel('Number of Users', fontsize=14, fontweight='bold')
-        ax1.set_title('Advanced User Engagement Funnel', fontsize=18, fontweight='bold', pad=20)
-        ax1.grid(True, alpha=0.3, axis='x')
-        ax1.spines['top'].set_visible(False)
-        ax1.spines['right'].set_visible(False)
-
-        # 2. Engagement Distribution Pie Chart (top right)
-        ax2 = fig.add_subplot(gs[0, 2])
-        
-        # Filter out zero values for pie chart
-        non_zero_stages = [(stage, value) for stage, value in engagement_stages.items() if value > 0]
-        if non_zero_stages:
-            pie_labels, pie_values = zip(*non_zero_stages)
-            pie_colors = [colors[stages.index(label)] for label in pie_labels]
-            
-            wedges, texts, autotexts = ax2.pie(pie_values, labels=pie_labels, colors=pie_colors,
-                                              autopct='%1.1f%%', startangle=90,
-                                              textprops={'fontsize': 10},
-                                              wedgeprops=dict(width=0.7, edgecolor='white', linewidth=2))
-            
-            # Add center text
-            total_users = sum(pie_values)
-            ax2.text(0, 0, f'{total_users:,}\nUsers', ha='center', va='center', 
-                    fontsize=14, fontweight='bold', color='#2C3E50')
-        
-        ax2.set_title('Engagement Level Distribution', fontsize=14, fontweight='bold')
-
-        # 3. Message Count Distribution (middle left)
-        ax3 = fig.add_subplot(gs[1, 0])
-        
-        user_message_counts = [data['user_messages'] for data in conversation_data]
-        
-        ax3.hist(user_message_counts, bins=20, color='#3498DB', alpha=0.7, edgecolor='white')
-        ax3.axvline(np.mean(user_message_counts), color='#E74C3C', linestyle='--', linewidth=2,
-                   label=f'Average: {np.mean(user_message_counts):.1f}')
-        ax3.axvline(np.median(user_message_counts), color='#F39C12', linestyle='--', linewidth=2,
-                   label=f'Median: {np.median(user_message_counts):.1f}')
-        
-        ax3.set_xlabel('Messages per User', fontsize=12)
-        ax3.set_ylabel('Number of Users', fontsize=12)
-        ax3.set_title('User Message Distribution', fontsize=14, fontweight='bold')
-        ax3.legend(fontsize=10)
-        ax3.grid(True, alpha=0.3)
-
-        # 4. Engagement Quality Matrix (middle center)
-        ax4 = fig.add_subplot(gs[1, 1])
-        
-        # Create engagement quality metrics
-        quality_metrics = {
-            'Bounce Rate': f"{(values[0] - sum(values[1:]))/values[0]*100:.1f}%" if values[0] > 0 else "N/A",
-            'Conversion to Active': f"{sum(values[2:])/values[0]*100:.1f}%" if values[0] > 0 else "N/A",
-            'Retention Score': f"{sum(values[3:])/values[0]*100:.1f}%" if values[0] > 0 else "N/A",
-            'Power User Rate': f"{values[4]/values[0]*100:.1f}%" if values[0] > 0 else "N/A"
-        }
-        
-        ax4.axis('off')
-        ax4.set_title('Engagement Quality Metrics', fontsize=14, fontweight='bold', pad=20)
-        
-        y_pos = 0.8
-        for metric, value in quality_metrics.items():
-            ax4.text(0.1, y_pos, f"• {metric}:", fontsize=12, fontweight='bold', 
-                    transform=ax4.transAxes)
-            ax4.text(0.9, y_pos, value, fontsize=12, 
-                    transform=ax4.transAxes, ha='right',
-                    bbox=dict(boxstyle="round,pad=0.3", facecolor="#ECF0F1", alpha=0.8))
-            y_pos -= 0.15
-
-        # 5. Conversation Length Trends (middle right)
-        ax5 = fig.add_subplot(gs[1, 2])
-        
-        # Group conversations by length ranges
-        length_ranges = {'1': 0, '2-4': 0, '5-9': 0, '10-19': 0, '20+': 0}
-        for count in user_message_counts:
-            if count == 1:
-                length_ranges['1'] += 1
-            elif 2 <= count <= 4:
-                length_ranges['2-4'] += 1
-            elif 5 <= count <= 9:
-                length_ranges['5-9'] += 1
-            elif 10 <= count <= 19:
-                length_ranges['10-19'] += 1
-            else:
-                length_ranges['20+'] += 1
-        
-        ranges = list(length_ranges.keys())
-        counts = list(length_ranges.values())
-        
-        bars = ax5.bar(ranges, counts, color=['#95A5A6', '#3498DB', '#2ECC71', '#F39C12', '#E74C3C'], alpha=0.8)
-        ax5.set_xlabel('Message Count Range', fontsize=12)
-        ax5.set_ylabel('Number of Users', fontsize=12)
-        ax5.set_title('Conversation Length Segments', fontsize=14, fontweight='bold')
-        
-        # Add value labels on bars
-        for bar, count in zip(bars, counts):
-            if count > 0:
-                ax5.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.5, 
-                        str(count), ha='center', va='bottom', fontweight='bold')
-
-        # 6. Advanced Insights Panel (bottom row)
-        ax6 = fig.add_subplot(gs[2, :])
-        ax6.axis('off')
-        
-        # Calculate advanced metrics
-        total_conversations = len(conversation_data)
-        avg_messages_per_user = np.mean(user_message_counts)
-        engagement_score = (sum(values[2:]) / values[0] * 100) if values[0] > 0 else 0
-        
-        # Determine engagement level
-        if engagement_score >= 40:
-            engagement_level = "Excellent"
-            level_color = "#27AE60"
-        elif engagement_score >= 25:
-            engagement_level = "Good"
-            level_color = "#F39C12"
-        elif engagement_score >= 15:
-            engagement_level = "Fair"
-            level_color = "#E67E22"
+            for ax in [ax1, ax2, ax3, ax4]:
+                ax.text(0.5, 0.5, 'No engagement data available', 
+                       ha='center', va='center', fontsize=16, color='#7F8C8D')
+                ax.set_xticks([])
+                ax.set_yticks([])
         else:
-            engagement_level = "Needs Improvement"
-            level_color = "#E74C3C"
+            # Analyze engagement patterns
+            engagement_stages = {
+                "Initial Contact": 0,
+                "Engaged (2-4 msgs)": 0,
+                "Active (5-9 msgs)": 0,
+                "Highly Engaged (10-19 msgs)": 0,
+                "Power Users (20+ msgs)": 0
+            }
+            
+            user_message_counts = []
+            conversation_lengths = []
+            
+            for convo in conversations:
+                if "messages" not in convo:
+                    continue
 
-        insights_text = f"""
-ENGAGEMENT INSIGHTS & RECOMMENDATIONS
-
-Overall Performance:
-   • Total Conversations: {total_conversations:,}
-   • Average Messages/User: {avg_messages_per_user:.1f}
-   • Engagement Score: {engagement_score:.1f}% ({engagement_level})
-   • User Retention: {(sum(values[1:]) / values[0] * 100):.1f}% continue past first interaction
-
-Key Findings:
-   • {values[4]} power users (20+ messages) - these are your most valuable users
-   • {values[0] - sum(values[1:])} users dropped after first interaction
-   • {sum(values[2:4])} users show strong engagement potential
-
-Actionable Recommendations:
-   • Focus on reducing bounce rate from {(values[0] - sum(values[1:]))/values[0]*100:.1f}%
-   • Implement engagement triggers for users with 2-4 messages
-   • Analyze power user conversations to identify success patterns
-        """
-
-        ax6.text(0.02, 0.98, insights_text, transform=ax6.transAxes, fontsize=12,
-                verticalalignment='top', fontfamily='DejaVu Sans',
-                bbox=dict(boxstyle="round,pad=1.0", facecolor=level_color, alpha=0.15, 
-                         edgecolor=level_color, linewidth=2))
-
-        fig.suptitle(f'User Engagement Analytics Dashboard ({period} days)' if period > 0 else 'User Engagement Analytics Dashboard (All Time)', 
-                     fontsize=28, fontweight='bold', y=0.96, pad=20)
-
+                messages = convo["messages"]
+                user_messages = [msg for msg in messages if msg.get("role") == "user"]
+                user_count = len(user_messages)
+                
+                if user_count == 0:
+                    continue
+                
+                user_message_counts.append(user_count)
+                conversation_lengths.append(len(messages))
+                
+                # Categorize engagement
+                if user_count >= 1:
+                    engagement_stages["Initial Contact"] += 1
+                if 2 <= user_count <= 4:
+                    engagement_stages["Engaged (2-4 msgs)"] += 1
+                elif 5 <= user_count <= 9:
+                    engagement_stages["Active (5-9 msgs)"] += 1
+                elif 10 <= user_count <= 19:
+                    engagement_stages["Highly Engaged (10-19 msgs)"] += 1
+                elif user_count >= 20:
+                    engagement_stages["Power Users (20+ msgs)"] += 1
+            
+            if not user_message_counts:
+                for ax in [ax1, ax2, ax3, ax4]:
+                    ax.text(0.5, 0.5, 'No valid engagement data', 
+                           ha='center', va='center', fontsize=16, color='#7F8C8D')
+                    ax.set_xticks([])
+                    ax.set_yticks([])
+            else:
+                # 1. Engagement Funnel
+                stages = list(engagement_stages.keys())
+                values = list(engagement_stages.values())
+                colors = ['#1ABC9C', '#3498DB', '#9B59B6', '#E67E22', '#E74C3C']
+                
+                # Create horizontal funnel
+                y_positions = np.arange(len(stages))[::-1]  # Reverse for funnel effect
+                bars = ax1.barh(y_positions, values, color=colors, alpha=0.8, edgecolor='white', linewidth=2)
+                
+                # Add labels with percentages
+                initial_users = values[0] if values else 1
+                for i, (bar, value) in enumerate(zip(bars, values)):
+                    if value > 0:
+                        percentage = (value / initial_users) * 100
+                        ax1.text(value + max(values) * 0.02, bar.get_y() + bar.get_height()/2,
+                                f'{value:,} ({percentage:.1f}%)', va='center', fontweight='bold', fontsize=11)
+                
+                ax1.set_yticks(y_positions)
+                ax1.set_yticklabels(stages, fontsize=11)
+                ax1.set_xlabel('Number of Users', fontsize=12, fontweight='bold')
+                ax1.set_title('User Engagement Funnel', fontsize=16, fontweight='bold')
+                ax1.grid(True, alpha=0.3, axis='x')
+                ax1.spines['top'].set_visible(False)
+                ax1.spines['right'].set_visible(False)
+                
+                # 2. Message Count Distribution
+                ax2.hist(user_message_counts, bins=min(20, max(user_message_counts)), 
+                        color='#3498DB', alpha=0.7, edgecolor='white', linewidth=1)
+                
+                avg_messages = np.mean(user_message_counts)
+                median_messages = np.median(user_message_counts)
+                
+                ax2.axvline(avg_messages, color='#E74C3C', linestyle='--', linewidth=2,
+                           label=f'Average: {avg_messages:.1f}')
+                ax2.axvline(median_messages, color='#F39C12', linestyle='--', linewidth=2,
+                           label=f'Median: {median_messages:.1f}')
+                
+                ax2.set_xlabel('Messages per User', fontsize=12, fontweight='bold')
+                ax2.set_ylabel('Number of Users', fontsize=12, fontweight='bold')
+                ax2.set_title('User Message Distribution', fontsize=16, fontweight='bold')
+                ax2.legend(fontsize=11, frameon=True, fancybox=True, shadow=True)
+                ax2.grid(True, alpha=0.3)
+                ax2.spines['top'].set_visible(False)
+                ax2.spines['right'].set_visible(False)
+                
+                # 3. Engagement Level Pie Chart
+                # Filter out zero values for pie chart
+                non_zero_engagement = [(stage, value) for stage, value in engagement_stages.items() if value > 0]
+                if non_zero_engagement:
+                    pie_labels, pie_values = zip(*non_zero_engagement)
+                    pie_colors = [colors[stages.index(label)] for label in pie_labels]
+                    
+                    wedges, texts, autotexts = ax3.pie(pie_values, labels=pie_labels, colors=pie_colors,
+                                                      autopct='%1.1f%%', startangle=90,
+                                                      textprops={'fontsize': 10, 'fontweight': 'bold'},
+                                                      wedgeprops=dict(width=0.7, edgecolor='white', linewidth=2))
+                    
+                    # Center text
+                    total_users = sum(pie_values)
+                    ax3.text(0, 0, f'{total_users:,}\nUsers', ha='center', va='center', 
+                            fontsize=14, fontweight='bold', color='#2C3E50')
+                
+                ax3.set_title('Engagement Level Distribution', fontsize=16, fontweight='bold')
+                
+                # 4. Engagement Metrics & Insights
+                ax4.axis('off')
+                ax4.set_title('Engagement Insights', fontsize=16, fontweight='bold', y=0.95)
+                
+                # Calculate key metrics
+                total_users = len(user_message_counts)
+                bounce_rate = ((values[0] - sum(values[1:])) / values[0] * 100) if values[0] > 0 else 0
+                activation_rate = (sum(values[1:]) / values[0] * 100) if values[0] > 0 else 0
+                power_user_rate = (values[4] / values[0] * 100) if values[0] > 0 else 0
+                retention_score = (sum(values[2:]) / values[0] * 100) if values[0] > 0 else 0
+                
+                # Engagement quality assessment
+                if activation_rate >= 60:
+                    engagement_quality = "Excellent"
+                    quality_color = "#27AE60"
+                elif activation_rate >= 40:
+                    engagement_quality = "Good"
+                    quality_color = "#3498DB"
+                elif activation_rate >= 25:
+                    engagement_quality = "Fair"
+                    quality_color = "#F39C12"
+                else:
+                    engagement_quality = "Needs Improvement"
+                    quality_color = "#E74C3C"
+                
+                metrics = [
+                    ('Total Users', f'{total_users:,}'),
+                    ('Bounce Rate', f'{bounce_rate:.1f}%'),
+                    ('Activation Rate', f'{activation_rate:.1f}%'),
+                    ('Retention Score', f'{retention_score:.1f}%'),
+                    ('Power User Rate', f'{power_user_rate:.1f}%'),
+                    ('Engagement Quality', engagement_quality)
+                ]
+                
+                y_start = 0.8
+                for i, (metric, value) in enumerate(metrics):
+                    y_pos = y_start - (i * 0.12)
+                    ax4.text(0.05, y_pos, f'• {metric}:', fontsize=13, fontweight='bold', 
+                            transform=ax4.transAxes, va='center')
+                    
+                    # Color code quality metric
+                    text_color = quality_color if i == 5 else '#2C3E50'
+                    box_color = quality_color if i == 5 else "#ECF0F1"
+                    
+                    ax4.text(0.95, y_pos, value, fontsize=13, transform=ax4.transAxes, 
+                            va='center', ha='right', color=text_color, fontweight='bold' if i == 5 else 'normal',
+                            bbox=dict(boxstyle="round,pad=0.4", facecolor=box_color, alpha=0.3 if i == 5 else 0.8))
+                
+                # Strategic recommendations
+                recommendations = []
+                if bounce_rate > 60:
+                    recommendations.append("High bounce rate - improve initial user experience")
+                if power_user_rate < 5:
+                    recommendations.append("Focus on converting active users to power users")
+                if activation_rate < 30:
+                    recommendations.append("Implement engagement triggers for new users")
+                if not recommendations:
+                    recommendations.append("Strong engagement patterns - maintain current strategy")
+                
+                rec_text = "Strategic Recommendations:\n" + "\n".join(f"• {rec}" for rec in recommendations[:3])
+                ax4.text(0.5, 0.05, rec_text, transform=ax4.transAxes, ha='center', va='bottom', 
+                        fontsize=11, style='italic',
+                        bbox=dict(boxstyle="round,pad=0.5", facecolor="#F8F9FA", alpha=0.9, 
+                                 edgecolor='#BDC3C7', linewidth=1))
+        
+        period_text = f"({period} days)" if period > 0 else "(All Time)"
+        fig.suptitle(f'User Engagement Analytics Dashboard {period_text}', 
+                    fontsize=24, fontweight='bold', y=0.95, color='#2C3E50')
+        
+        plt.tight_layout()
         save_plot_to_supabase(plt, "User engagement funnel plot", chatbot_id, period)
-
+        
     except Exception as e:
         print(f"Error generating user engagement funnel: {e}")
     finally:
         plt.close()
-
-
-
 
 
 def get_conversation_insights(chatbot_id, period):
@@ -1151,15 +1203,13 @@ def get_conversation_insights(chatbot_id, period):
         # Clean existing plots first to ensure fresh generation
         clean_existing_plots(chatbot_id, period)
 
-        # Generate all visualizations (Top 10 User Queries plot and Monthly Heatmap removed)
-        generate_message_distribution(user_queries, assistant_responses,
-                                      chatbot_id, period)
+        # Generate all 6 focused visualizations
+        generate_message_distribution(user_queries, assistant_responses, chatbot_id, period)
         generate_sentiment_analysis(user_queries, chatbot_id, period)
         generate_chat_volume_plot(conversations, chatbot_id, period)
         generate_peak_hours_activity_plot(conversations, chatbot_id, period)
         generate_conversation_quality_analysis(conversations, chatbot_id, period)
         generate_user_engagement_funnel(conversations, chatbot_id, period)
-
 
         # Prepare insights data
         current_date = datetime.now().date().isoformat()
