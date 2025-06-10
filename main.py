@@ -559,68 +559,281 @@ def generate_peak_hours_activity_plot(conversations, chatbot_id, period):
         plt.close()
 
 
-def generate_response_time_analysis(conversations, chatbot_id, period):
+def generate_conversation_quality_analysis(conversations, chatbot_id, period):
     try:
-        response_times = []
+        if not conversations:
+            plt.figure(figsize=(16, 12), dpi=150)
+            plt.text(0.5, 0.5, 'No conversation data available for quality analysis', 
+                    horizontalalignment='center', fontsize=16)
+            plt.axis('off')
+            save_plot_to_supabase(plt, "Conversation quality analysis plot", chatbot_id, period)
+            return
 
+        # Analyze conversation quality metrics
+        conversation_metrics = []
+        unanswered_count = 0
+        total_word_count = 0
+        question_patterns = ['?', 'how', 'what', 'when', 'where', 'why', 'can you', 'could you', 'please']
+        
         for convo in conversations:
             if "messages" not in convo:
                 continue
 
             messages = convo["messages"]
-            for i in range(len(messages) - 1):
-                if (messages[i].get("role") == "user" and 
-                    messages[i + 1].get("role") == "assistant"):
-                    # Simulate response time analysis (in real scenario, you'd have timestamps)
-                    # For demo, we'll use message length as a proxy for complexity/response time
-                    user_msg_length = len(messages[i].get("content", ""))
-                    assistant_msg_length = len(messages[i + 1].get("content", ""))
+            user_messages = [msg for msg in messages if msg.get("role") == "user"]
+            assistant_messages = [msg for msg in messages if msg.get("role") == "assistant"]
+            
+            if not user_messages:
+                continue
 
-                    # Simple heuristic: longer responses take more time
-                    estimated_response_time = min(max(assistant_msg_length / 20, 0.5), 30)  # 0.5-30 seconds
-                    response_times.append(estimated_response_time)
+            # Calculate quality metrics for this conversation
+            total_messages = len(messages)
+            user_msg_count = len(user_messages)
+            assistant_msg_count = len(assistant_messages)
+            
+            # Calculate average message lengths
+            user_word_counts = [len(msg.get("content", "").split()) for msg in user_messages]
+            assistant_word_counts = [len(msg.get("content", "").split()) for msg in assistant_messages]
+            
+            avg_user_words = np.mean(user_word_counts) if user_word_counts else 0
+            avg_assistant_words = np.mean(assistant_word_counts) if assistant_word_counts else 0
+            
+            # Check for questions in user messages
+            questions_count = 0
+            for msg in user_messages:
+                content = msg.get("content", "").lower()
+                if any(pattern in content for pattern in question_patterns):
+                    questions_count += 1
+            
+            # Check for unanswered queries (Oops responses)
+            has_unanswered = any("Oops" in msg.get("content", "") for msg in assistant_messages)
+            if has_unanswered:
+                unanswered_count += 1
+            
+            # Calculate conversation depth score
+            interaction_ratio = assistant_msg_count / user_msg_count if user_msg_count > 0 else 0
+            question_ratio = questions_count / user_msg_count if user_msg_count > 0 else 0
+            
+            # Quality score calculation (0-100)
+            quality_score = min(100, (
+                (min(total_messages, 20) / 20 * 30) +  # Message volume (30%)
+                (min(interaction_ratio, 2) / 2 * 25) +  # Response rate (25%)
+                (min(avg_assistant_words, 50) / 50 * 20) +  # Response depth (20%)
+                (question_ratio * 15) +  # Question engagement (15%)
+                (0 if has_unanswered else 10)  # No unanswered queries (10%)
+            ))
+            
+            conversation_metrics.append({
+                'total_messages': total_messages,
+                'user_messages': user_msg_count,
+                'assistant_messages': assistant_msg_count,
+                'quality_score': quality_score,
+                'avg_user_words': avg_user_words,
+                'avg_assistant_words': avg_assistant_words,
+                'questions_count': questions_count,
+                'has_unanswered': has_unanswered,
+                'interaction_ratio': interaction_ratio
+            })
+            
+            total_word_count += sum(user_word_counts) + sum(assistant_word_counts)
 
-        plt.figure(figsize=(14, 8), dpi=150)
-
-        if not response_times:
-            plt.text(0.5, 0.5, 'No response time data available', 
+        if not conversation_metrics:
+            plt.figure(figsize=(16, 12), dpi=150)
+            plt.text(0.5, 0.5, 'No valid conversation data for quality analysis', 
                     horizontalalignment='center', fontsize=16)
             plt.axis('off')
+            save_plot_to_supabase(plt, "Conversation quality analysis plot", chatbot_id, period)
+            return
+
+        # Create comprehensive quality analysis dashboard
+        fig = plt.figure(figsize=(20, 16), dpi=150)
+        gs = fig.add_gridspec(3, 3, hspace=0.3, wspace=0.3)
+
+        # 1. Quality Score Distribution (top-left)
+        ax1 = fig.add_subplot(gs[0, 0])
+        quality_scores = [metric['quality_score'] for metric in conversation_metrics]
+        
+        # Create quality categories
+        excellent = sum(1 for score in quality_scores if score >= 80)
+        good = sum(1 for score in quality_scores if 60 <= score < 80)
+        fair = sum(1 for score in quality_scores if 40 <= score < 60)
+        poor = sum(1 for score in quality_scores if score < 40)
+        
+        quality_categories = ['Excellent\n(80-100)', 'Good\n(60-79)', 'Fair\n(40-59)', 'Poor\n(<40)']
+        quality_counts = [excellent, good, fair, poor]
+        colors = ['#27AE60', '#3498DB', '#F39C12', '#E74C3C']
+        
+        bars = ax1.bar(quality_categories, quality_counts, color=colors, alpha=0.8)
+        ax1.set_ylabel('Number of Conversations', fontsize=12)
+        ax1.set_title('Conversation Quality Distribution', fontsize=14, fontweight='bold')
+        
+        # Add value labels
+        for bar, count in zip(bars, quality_counts):
+            if count > 0:
+                ax1.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.5, 
+                        str(count), ha='center', va='bottom', fontweight='bold')
+
+        # 2. Message Depth Analysis (top-center)
+        ax2 = fig.add_subplot(gs[0, 1])
+        
+        message_counts = [metric['total_messages'] for metric in conversation_metrics]
+        ax2.hist(message_counts, bins=15, color='#9B59B6', alpha=0.7, edgecolor='white')
+        
+        avg_messages = np.mean(message_counts)
+        ax2.axvline(avg_messages, color='red', linestyle='--', linewidth=2,
+                   label=f'Average: {avg_messages:.1f}')
+        
+        ax2.set_xlabel('Messages per Conversation', fontsize=12)
+        ax2.set_ylabel('Number of Conversations', fontsize=12)
+        ax2.set_title('Conversation Depth Analysis', fontsize=14, fontweight='bold')
+        ax2.legend()
+        ax2.grid(True, alpha=0.3)
+
+        # 3. Response Effectiveness (top-right)
+        ax3 = fig.add_subplot(gs[0, 2])
+        
+        response_ratios = [metric['interaction_ratio'] for metric in conversation_metrics]
+        excellent_response = sum(1 for ratio in response_ratios if ratio >= 1.0)
+        good_response = sum(1 for ratio in response_ratios if 0.8 <= ratio < 1.0)
+        poor_response = sum(1 for ratio in response_ratios if ratio < 0.8)
+        
+        response_labels = ['Excellent\n(≥1.0)', 'Good\n(0.8-0.99)', 'Needs Work\n(<0.8)']
+        response_counts = [excellent_response, good_response, poor_response]
+        response_colors = ['#2ECC71', '#F39C12', '#E74C3C']
+        
+        wedges, texts, autotexts = ax3.pie(response_counts, labels=response_labels, colors=response_colors,
+                                          autopct='%1.1f%%', startangle=90,
+                                          textprops={'fontsize': 10})
+        ax3.set_title('Response Effectiveness', fontsize=14, fontweight='bold')
+
+        # 4. Word Count Analysis (middle-left)
+        ax4 = fig.add_subplot(gs[1, 0])
+        
+        user_word_counts = [metric['avg_user_words'] for metric in conversation_metrics]
+        assistant_word_counts = [metric['avg_assistant_words'] for metric in conversation_metrics]
+        
+        ax4.scatter(user_word_counts, assistant_word_counts, alpha=0.6, color='#3498DB', s=50)
+        ax4.set_xlabel('Avg User Words per Message', fontsize=12)
+        ax4.set_ylabel('Avg Assistant Words per Message', fontsize=12)
+        ax4.set_title('Message Length Correlation', fontsize=14, fontweight='bold')
+        ax4.grid(True, alpha=0.3)
+        
+        # Add trend line
+        if len(user_word_counts) > 1:
+            z = np.polyfit(user_word_counts, assistant_word_counts, 1)
+            p = np.poly1d(z)
+            ax4.plot(sorted(user_word_counts), p(sorted(user_word_counts)), "r--", alpha=0.8)
+
+        # 5. Question Engagement Analysis (middle-center)
+        ax5 = fig.add_subplot(gs[1, 1])
+        
+        total_questions = sum(metric['questions_count'] for metric in conversation_metrics)
+        question_conversations = sum(1 for metric in conversation_metrics if metric['questions_count'] > 0)
+        
+        engagement_data = {
+            'High Question\nEngagement\n(3+ questions)': sum(1 for metric in conversation_metrics if metric['questions_count'] >= 3),
+            'Moderate\nEngagement\n(1-2 questions)': sum(1 for metric in conversation_metrics if 1 <= metric['questions_count'] <= 2),
+            'Low Engagement\n(No questions)': sum(1 for metric in conversation_metrics if metric['questions_count'] == 0)
+        }
+        
+        engagement_colors = ['#27AE60', '#F39C12', '#95A5A6']
+        bars = ax5.bar(engagement_data.keys(), engagement_data.values(), color=engagement_colors, alpha=0.8)
+        ax5.set_ylabel('Number of Conversations', fontsize=12)
+        ax5.set_title('Question Engagement Levels', fontsize=14, fontweight='bold')
+        ax5.tick_params(axis='x', rotation=0)
+        
+        # Add percentages
+        total_convos = len(conversation_metrics)
+        for bar, count in zip(bars, engagement_data.values()):
+            if count > 0:
+                percentage = (count / total_convos) * 100
+                ax5.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.5, 
+                        f'{count}\n({percentage:.1f}%)', ha='center', va='bottom', fontweight='bold')
+
+        # 6. Problem Resolution Rate (middle-right)
+        ax6 = fig.add_subplot(gs[1, 2])
+        
+        resolved = len(conversation_metrics) - unanswered_count
+        resolution_data = ['Resolved', 'Unresolved']
+        resolution_counts = [resolved, unanswered_count]
+        resolution_colors = ['#27AE60', '#E74C3C']
+        
+        if sum(resolution_counts) > 0:
+            wedges, texts, autotexts = ax6.pie(resolution_counts, labels=resolution_data, colors=resolution_colors,
+                                              autopct='%1.1f%%', startangle=90,
+                                              textprops={'fontsize': 12, 'fontweight': 'bold'})
+            
+            # Add center text
+            resolution_rate = (resolved / len(conversation_metrics)) * 100
+            ax6.text(0, 0, f'{resolution_rate:.1f}%\nResolution\nRate', ha='center', va='center', 
+                    fontsize=12, fontweight='bold', color='#2C3E50')
+        
+        ax6.set_title('Problem Resolution Rate', fontsize=14, fontweight='bold')
+
+        # 7. Comprehensive Quality Insights (bottom row)
+        ax7 = fig.add_subplot(gs[2, :])
+        ax7.axis('off')
+        
+        # Calculate key metrics
+        avg_quality_score = np.mean(quality_scores)
+        avg_total_messages = np.mean([metric['total_messages'] for metric in conversation_metrics])
+        avg_response_ratio = np.mean(response_ratios)
+        question_engagement_rate = (question_conversations / len(conversation_metrics)) * 100
+        resolution_percentage = (resolved / len(conversation_metrics)) * 100
+        
+        # Determine overall grade
+        if avg_quality_score >= 80:
+            overall_grade = "A+ (Excellent)"
+            grade_color = "#27AE60"
+        elif avg_quality_score >= 70:
+            overall_grade = "A (Very Good)"
+            grade_color = "#2ECC71"
+        elif avg_quality_score >= 60:
+            overall_grade = "B (Good)"
+            grade_color = "#3498DB"
+        elif avg_quality_score >= 50:
+            overall_grade = "C (Fair)"
+            grade_color = "#F39C12"
         else:
-            # Create histogram
-            plt.hist(response_times, bins=20, color='#9b59b6', alpha=0.7, edgecolor='#8e44ad')
+            overall_grade = "D (Needs Improvement)"
+            grade_color = "#E74C3C"
 
-            # Add statistics
-            avg_response_time = np.mean(response_times)
-            median_response_time = np.median(response_times)
+        insights_text = f"""
+🎯 CONVERSATION QUALITY ANALYSIS REPORT
 
-            plt.axvline(avg_response_time, color='red', linestyle='--', linewidth=2, 
-                       label=f'Average: {avg_response_time:.1f}s')
-            plt.axvline(median_response_time, color='orange', linestyle='--', linewidth=2, 
-                       label=f'Median: {median_response_time:.1f}s')
+📊 Overall Quality Grade: {overall_grade} (Score: {avg_quality_score:.1f}/100)
 
-            plt.xlabel('Response Time (seconds)', fontsize=14)
-            plt.ylabel('Number of Responses', fontsize=14)
-            plt.title(f'Response Time Analysis ({period} days)' if period > 0 else 'Response Time Analysis (All Time)', 
-                     fontsize=18, pad=20)
-            plt.legend(fontsize=12)
-            plt.grid(True, alpha=0.3)
+📈 Key Performance Indicators:
+   • Average Messages per Conversation: {avg_total_messages:.1f}
+   • Response Effectiveness Ratio: {avg_response_ratio:.2f}:1
+   • Question Engagement Rate: {question_engagement_rate:.1f}%
+   • Problem Resolution Rate: {resolution_percentage:.1f}%
+   • Total Word Count Processed: {total_word_count:,} words
 
-            # Add performance insights
-            fast_responses = sum(1 for rt in response_times if rt <= 2)
-            fast_percentage = (fast_responses / len(response_times)) * 100
+🔍 Quality Breakdown:
+   • Excellent Conversations: {excellent} ({excellent/len(conversation_metrics)*100:.1f}%)
+   • Good Conversations: {good} ({good/len(conversation_metrics)*100:.1f}%)
+   • Fair Conversations: {fair} ({fair/len(conversation_metrics)*100:.1f}%)
+   • Poor Conversations: {poor} ({poor/len(conversation_metrics)*100:.1f}%)
 
-            insights_text = f"Performance Insights:\n• Fast responses (≤2s): {fast_percentage:.1f}%\n• Total responses analyzed: {len(response_times):,}\n• Average response time: {avg_response_time:.1f}s"
-            plt.text(0.98, 0.98, insights_text, transform=plt.gca().transAxes, 
-                    fontsize=11, verticalalignment='top', horizontalalignment='right',
-                    bbox=dict(boxstyle="round,pad=0.5", facecolor="#E8F8F5", alpha=0.9, edgecolor='#1ABC9C'))
+💡 Strategic Recommendations:
+   • {"Focus on improving response depth and engagement" if avg_quality_score < 70 else "Maintain current high-quality standards"}
+   • {"Reduce unanswered queries to improve resolution rate" if resolution_percentage < 90 else "Excellent problem resolution performance"}
+   • {"Encourage more question-based interactions" if question_engagement_rate < 60 else "Strong question engagement levels"}
+        """
 
-            plt.tight_layout()
+        ax7.text(0.02, 0.98, insights_text, transform=ax7.transAxes, fontsize=11,
+                verticalalignment='top', fontfamily='monospace',
+                bbox=dict(boxstyle="round,pad=0.8", facecolor=grade_color, alpha=0.1, 
+                         edgecolor=grade_color, linewidth=2))
 
-        save_plot_to_supabase(plt, "Response time analysis plot", chatbot_id, period)
+        fig.suptitle(f'Conversation Quality Analysis Dashboard ({period} days)' if period > 0 else 'Conversation Quality Analysis Dashboard (All Time)', 
+                     fontsize=24, fontweight='bold', y=0.98)
+
+        save_plot_to_supabase(plt, "Conversation quality analysis plot", chatbot_id, period)
 
     except Exception as e:
-        print(f"Error generating response time analysis: {e}")
+        print(f"Error generating conversation quality analysis: {e}")
     finally:
         plt.close()
 
@@ -941,7 +1154,7 @@ def get_conversation_insights(chatbot_id, period):
         generate_sentiment_analysis(user_queries, chatbot_id, period)
         generate_chat_volume_plot(conversations, chatbot_id, period)
         generate_peak_hours_activity_plot(conversations, chatbot_id, period)
-        generate_response_time_analysis(conversations, chatbot_id, period)
+        generate_conversation_quality_analysis(conversations, chatbot_id, period)
         generate_user_engagement_funnel(conversations, chatbot_id, period)
 
 
