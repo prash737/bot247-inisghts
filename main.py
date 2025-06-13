@@ -1544,14 +1544,29 @@ def get_conversation_insights(chatbot_id: str, period: int) -> Optional[Dict]:
 
             for convo in all_conversations:
                 try:
-                    if "date_of_convo" not in convo or not convo["date_of_convo"]:
-                        continue
-                    convo_date = datetime.strptime(convo["date_of_convo"], "%Y-%m-%d")
-                    if convo_date >= cutoff_date:
+                    convo_date = None
+                    if "date_of_convo" in convo and convo["date_of_convo"]:
+                        convo_date = datetime.strptime(convo["date_of_convo"], "%Y-%m-%d")
+                    elif "created_at" in convo and convo["created_at"]:
+                        timestamp_str = convo["created_at"]
+                        if timestamp_str.endswith('Z'):
+                            timestamp = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
+                        else:
+                            timestamp = datetime.fromisoformat(timestamp_str)
+                        convo_date = timestamp.replace(hour=0, minute=0, second=0, microsecond=0)
+                    
+                    if convo_date and convo_date >= cutoff_date:
                         filtered_conversations.append(convo)
                         processed_ids.add(convo["id"])
+                    elif not convo_date:
+                        filtered_conversations.append(convo)
+                        processed_ids.add(convo["id"])
+                        
                 except Exception as e:
                     logger.debug(f"Error processing date for conversation {convo.get('id')}: {e}")
+                    filtered_conversations.append(convo)
+                    if convo.get("id"):
+                        processed_ids.add(convo["id"])
                     continue
         else:
             filtered_conversations = all_conversations
