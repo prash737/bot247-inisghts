@@ -27,9 +27,6 @@ SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 
 if not SUPABASE_URL or not SUPABASE_KEY:
     logger.error("Missing required environment variables: SUPABASE_URL and SUPABASE_KEY")
-    logger.info("Please set these environment variables in the Secrets tab")
-    logger.info("SUPABASE_URL: Your Supabase project URL")
-    logger.info("SUPABASE_KEY: Your Supabase service role key")
     raise ValueError("SUPABASE_URL and SUPABASE_KEY must be set as environment variables")
 
 try:
