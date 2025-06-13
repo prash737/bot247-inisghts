@@ -1631,13 +1631,17 @@ def get_conversation_insights(chatbot_id: str, period: int) -> Optional[Dict]:
         successful_plots = sum(1 for result in plot_results.values() if result)
         logger.info(f"Successfully generated {successful_plots}/{len(plot_results)} plots")
 
-        current_date = datetime.now().date().isoformat()
+        if len(conversations) == 0:
+            logger.warning(f"No conversations found for chatbot {chatbot_id}, period {period}")
+            return None
+
+        analysis_date = datetime.now().date().isoformat()
         insights_data = {
             "chatbot_id": chatbot_id,
             "total_conversations": len(conversations),
             "total_user_queries": len(user_queries),
             "total_assistant_responses": len(assistant_responses),
-            "date_of_convo": current_date,
+            "date_of_convo": analysis_date,
             "period_range": period,
             "unanswered_queries": unanswered_queries_json,
             "top_user_queries": top_user_queries_json,
@@ -1646,26 +1650,39 @@ def get_conversation_insights(chatbot_id: str, period: int) -> Optional[Dict]:
         }
 
         try:
+            if not chatbot_id or not isinstance(period, int):
+                raise ValueError(f"Invalid chatbot_id or period: {chatbot_id}, {period}")
+                
             existing_record = supabase.table('insights') \
                 .select('id') \
                 .eq('chatbot_id', chatbot_id) \
                 .eq('period_range', period) \
-                .eq('date_of_convo', current_date) \
+                .eq('date_of_convo', analysis_date) \
                 .execute()
 
             if existing_record.data:
                 record_id = existing_record.data[0]['id']
-                supabase.table('insights') \
+                update_response = supabase.table('insights') \
                     .update(insights_data) \
                     .eq('id', record_id) \
                     .execute()
-                logger.info(f"Updated existing insights record for chatbot {chatbot_id}, period {period}")
+                if update_response.data:
+                    logger.info(f"Successfully updated insights record for chatbot {chatbot_id}, period {period}")
+                else:
+                    logger.warning(f"Update returned no data for chatbot {chatbot_id}, period {period}")
             else:
-                supabase.table('insights').insert(insights_data).execute()
-                logger.info(f"Inserted new insights record for chatbot {chatbot_id}, period {period}")
+                insert_response = supabase.table('insights').insert(insights_data).execute()
+                if insert_response.data:
+                    logger.info(f"Successfully inserted insights record for chatbot {chatbot_id}, period {period}")
+                else:
+                    logger.warning(f"Insert returned no data for chatbot {chatbot_id}, period {period}")
 
         except Exception as e:
-            logger.error(f"Error saving insights to database: {e}")
+            logger.error(f"Critical error saving insights to database: {e}")
+            logger.error(f"Chatbot ID: {chatbot_id}, Period: {period}")
+            logger.error(f"Analysis date: {analysis_date}")
+            logger.error(f"Data size - Conversations: {len(conversations)}, Queries: {len(user_queries)}")
+            return None
 
         return insights_data
         
