@@ -1641,8 +1641,7 @@ def get_conversation_insights(chatbot_id: str, period: int) -> Optional[Dict]:
             "period_range": period,
             "unanswered_queries": unanswered_queries_json,
             "top_user_queries": top_user_queries_json,
-            "created_at": datetime.now().isoformat(),
-            "plot_generation_success": plot_results
+            "created_at": datetime.now().isoformat()
         }
 
         try:
