@@ -62,6 +62,30 @@ def retry_on_failure(max_retries: int = MAX_RETRIES):
 
 
 @retry_on_failure()
+def fetch_chatbot_ratings(chatbot_id: str, period: int = 0) -> List[Dict]:
+    try:
+        query = supabase.table('chatbot_ratings').select('rating, created_at').eq('chatbot_id', chatbot_id)
+        
+        if period > 0:
+            current_date = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+            cutoff_date = current_date - timedelta(days=period)
+            query = query.gte('created_at', cutoff_date.isoformat())
+        
+        response = query.execute()
+        
+        if response.data:
+            logger.info(f"Fetched {len(response.data)} ratings for chatbot_id: {chatbot_id}")
+            return response.data
+        else:
+            logger.info(f"No ratings found for chatbot_id: {chatbot_id}")
+            return []
+            
+    except Exception as e:
+        logger.error(f"Error fetching ratings for chatbot {chatbot_id}: {e}")
+        raise
+
+
+@retry_on_failure()
 def fetch_all_conversations(chatbot_id: str) -> List[Dict]:
     try:
         count_query = supabase.table('testing_zaps2').select(
@@ -1442,6 +1466,191 @@ def generate_user_message_distribution(conversations: List[Dict], chatbot_id: st
 
 
 @safe_plot_generation
+def generate_rating_distribution_plot(chatbot_id: str, period: int):
+    try:
+        plt.style.use('default')
+        fig, ax = plt.subplots(1, 1, figsize=(12, 8), dpi=150)
+        fig.patch.set_facecolor('white')
+        
+        ratings_data = fetch_chatbot_ratings(chatbot_id, period)
+        
+        if not ratings_data:
+            ax.text(0.5, 0.5, 'No rating data available', 
+                   ha='center', va='center', fontsize=16, color='#7F8C8D')
+            ax.set_xticks([])
+            ax.set_yticks([])
+        else:
+            # Count ratings distribution
+            rating_counts = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
+            for rating_record in ratings_data:
+                rating = rating_record.get('rating')
+                if rating in rating_counts:
+                    rating_counts[rating] += 1
+            
+            ratings = list(rating_counts.keys())
+            counts = list(rating_counts.values())
+            colors = ['#E74C3C', '#E67E22', '#F39C12', '#3498DB', '#27AE60']  # Red to Green gradient
+            
+            bars = ax.bar(ratings, counts, color=colors, alpha=0.8, 
+                         edgecolor='white', linewidth=2)
+            
+            # Add value labels on bars
+            max_count = max(counts) if counts else 0
+            for bar, count in zip(bars, counts):
+                if count > 0:
+                    ax.text(bar.get_x() + bar.get_width()/2, 
+                           bar.get_height() + max_count*0.02,
+                           f'{count}', ha='center', va='bottom', 
+                           fontweight='bold', fontsize=12)
+            
+            # Calculate and display average rating
+            total_ratings = sum(rating * count for rating, count in rating_counts.items())
+            total_count = sum(counts)
+            avg_rating = total_ratings / total_count if total_count > 0 else 0
+            
+            ax.text(0.98, 0.95, f'Average Rating: {avg_rating:.2f}/5.0\nTotal Ratings: {total_count}', 
+                    transform=ax.transAxes, ha='right', va='top', fontsize=12, fontweight='bold',
+                    bbox=dict(boxstyle="round,pad=0.5", facecolor="#ECF0F1", alpha=0.8))
+            
+            ax.set_xlabel('Rating (1-5 Stars)', fontsize=14, fontweight='bold')
+            ax.set_ylabel('Number of Ratings', fontsize=14, fontweight='bold')
+            ax.set_xticks(ratings)
+            ax.set_xticklabels([f'{r} ⭐' for r in ratings])
+            ax.grid(True, alpha=0.3, axis='y')
+            ax.spines['top'].set_visible(False)
+            ax.spines['right'].set_visible(False)
+        
+        period_text = f"({period} days)" if period > 0 else "(All Time)"
+        ax.set_title(f'Rating Distribution {period_text}', fontsize=20, fontweight='bold', pad=20)
+        plt.tight_layout()
+        
+        success = save_plot_to_supabase(plt, "Rating distribution plot", chatbot_id, period)
+        return success
+        
+    except Exception as e:
+        logger.error(f"Error generating rating distribution plot: {e}")
+        return False
+
+
+@safe_plot_generation
+def generate_rating_trends_plot(chatbot_id: str, period: int):
+    try:
+        plt.style.use('default')
+        fig, ax = plt.subplots(1, 1, figsize=(14, 8), dpi=150)
+        fig.patch.set_facecolor('white')
+        
+        ratings_data = fetch_chatbot_ratings(chatbot_id, period)
+        
+        if not ratings_data:
+            ax.text(0.5, 0.5, 'No rating data available', 
+                   ha='center', va='center', fontsize=16, color='#7F8C8D')
+            ax.set_xticks([])
+            ax.set_yticks([])
+        else:
+            # Process ratings by date
+            daily_ratings = {}
+            
+            for rating_record in ratings_data:
+                try:
+                    created_at = rating_record.get('created_at')
+                    rating = rating_record.get('rating')
+                    
+                    if created_at and rating:
+                        # Parse the timestamp
+                        if created_at.endswith('Z'):
+                            timestamp = datetime.fromisoformat(created_at.replace('Z', '+00:00'))
+                        else:
+                            timestamp = datetime.fromisoformat(created_at)
+                        
+                        date_key = timestamp.strftime("%Y-%m-%d")
+                        
+                        if date_key not in daily_ratings:
+                            daily_ratings[date_key] = []
+                        daily_ratings[date_key].append(rating)
+                        
+                except Exception as e:
+                    logger.debug(f"Error processing rating timestamp: {e}")
+                    continue
+            
+            if not daily_ratings:
+                ax.text(0.5, 0.5, 'No valid rating data available', 
+                       ha='center', va='center', fontsize=16, color='#7F8C8D')
+            else:
+                # Calculate daily averages
+                dates = sorted(daily_ratings.keys())
+                daily_averages = []
+                daily_counts = []
+                
+                for date in dates:
+                    ratings_for_date = daily_ratings[date]
+                    avg_rating = sum(ratings_for_date) / len(ratings_for_date)
+                    daily_averages.append(avg_rating)
+                    daily_counts.append(len(ratings_for_date))
+                
+                # Format dates for display
+                formatted_dates = []
+                for date in dates:
+                    if period <= 30:  # Show day/month for short periods
+                        formatted_dates.append(datetime.strptime(date, "%Y-%m-%d").strftime("%m/%d"))
+                    else:  # Show month/year for longer periods
+                        formatted_dates.append(datetime.strptime(date, "%Y-%m-%d").strftime("%b %Y"))
+                
+                # Create the plot
+                line = ax.plot(formatted_dates, daily_averages, marker='o', linewidth=3, markersize=8, 
+                              color='#3498DB', markerfacecolor='#E74C3C', markeredgecolor='white', 
+                              markeredgewidth=2, label='Average Rating')
+                
+                # Add secondary y-axis for count
+                ax2 = ax.twinx()
+                bars = ax2.bar(formatted_dates, daily_counts, alpha=0.3, color='#95A5A6', 
+                              label='Number of Ratings')
+                
+                # Styling
+                ax.set_ylabel('Average Rating', fontsize=14, fontweight='bold', color='#3498DB')
+                ax2.set_ylabel('Number of Ratings', fontsize=14, fontweight='bold', color='#95A5A6')
+                ax.set_ylim(0.5, 5.5)
+                ax.set_yticks([1, 2, 3, 4, 5])
+                ax.tick_params(axis='x', rotation=45, labelsize=11)
+                ax.grid(True, alpha=0.3, linestyle='--')
+                ax.spines['top'].set_visible(False)
+                ax2.spines['top'].set_visible(False)
+                
+                # Add trend line if enough data points
+                if len(daily_averages) > 2:
+                    try:
+                        z = np.polyfit(range(len(daily_averages)), daily_averages, 1)
+                        p = np.poly1d(z)
+                        trend_line = ax.plot(formatted_dates, p(range(len(daily_averages))), "--", 
+                                           color='#E74C3C', linewidth=2, alpha=0.8, 
+                                           label=f'Trend: {"↗" if z[0] > 0 else "↘"}')
+                    except np.RankWarning:
+                        logger.debug("Could not fit trend line")
+                
+                # Add overall statistics
+                overall_avg = sum(daily_averages) / len(daily_averages)
+                total_ratings = sum(daily_counts)
+                ax.text(0.02, 0.98, f'Overall Average: {overall_avg:.2f}/5.0\nTotal Ratings: {total_ratings}', 
+                        transform=ax.transAxes, ha='left', va='top', fontsize=11, fontweight='bold',
+                        bbox=dict(boxstyle="round,pad=0.4", facecolor="#ECF0F1", alpha=0.9))
+                
+                # Combine legends
+                lines1, labels1 = ax.get_legend_handles_labels()
+                lines2, labels2 = ax2.get_legend_handles_labels()
+                ax.legend(lines1 + lines2, labels1 + labels2, loc='upper right', fontsize=10)
+        
+        period_text = f"(Last {period} days)" if period > 0 else "(All Time)"
+        ax.set_title(f'Rating Trends Over Time {period_text}', fontsize=20, fontweight='bold', pad=20)
+        plt.tight_layout()
+        
+        success = save_plot_to_supabase(plt, "Rating trends plot", chatbot_id, period)
+        return success
+        
+    except Exception as e:
+        logger.error(f"Error generating rating trends plot: {e}")
+        return False
+
+
+@safe_plot_generation
 def generate_engagement_level_distribution(conversations: List[Dict], chatbot_id: str, period: int):
     try:
         plt.style.use('default')
@@ -1642,6 +1851,10 @@ def get_conversation_insights(chatbot_id: str, period: int) -> Optional[Dict]:
         plot_results['engagement_funnel'] = generate_user_engagement_funnel(conversations, chatbot_id, period)
         plot_results['message_distribution_users'] = generate_user_message_distribution(conversations, chatbot_id, period)
         plot_results['engagement_levels'] = generate_engagement_level_distribution(conversations, chatbot_id, period)
+        
+        logger.info("Generating rating analysis plots...")
+        plot_results['rating_distribution'] = generate_rating_distribution_plot(chatbot_id, period)
+        plot_results['rating_trends'] = generate_rating_trends_plot(chatbot_id, period)
 
         successful_plots = sum(1 for result in plot_results.values() if result)
         logger.info(f"Successfully generated {successful_plots}/{len(plot_results)} plots")
