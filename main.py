@@ -1651,6 +1651,223 @@ def generate_rating_trends_plot(chatbot_id: str, period: int):
 
 
 @safe_plot_generation
+def generate_rating_satisfaction_analysis_plot(chatbot_id: str, period: int):
+    try:
+        plt.style.use('default')
+        fig, ax = plt.subplots(1, 1, figsize=(10, 10), dpi=150)
+        fig.patch.set_facecolor('white')
+        
+        ratings_data = fetch_chatbot_ratings(chatbot_id, period)
+        
+        if not ratings_data:
+            ax.text(0.5, 0.5, 'No rating data available', 
+                   ha='center', va='center', fontsize=16, color='#7F8C8D')
+            ax.set_xticks([])
+            ax.set_yticks([])
+        else:
+            # Categorize ratings into satisfaction levels
+            satisfaction_levels = {
+                'Very Satisfied (5⭐)': 0,
+                'Satisfied (4⭐)': 0,
+                'Neutral (3⭐)': 0,
+                'Dissatisfied (2⭐)': 0,
+                'Very Dissatisfied (1⭐)': 0
+            }
+            
+            for rating_record in ratings_data:
+                rating = rating_record.get('rating')
+                if rating == 5:
+                    satisfaction_levels['Very Satisfied (5⭐)'] += 1
+                elif rating == 4:
+                    satisfaction_levels['Satisfied (4⭐)'] += 1
+                elif rating == 3:
+                    satisfaction_levels['Neutral (3⭐)'] += 1
+                elif rating == 2:
+                    satisfaction_levels['Dissatisfied (2⭐)'] += 1
+                elif rating == 1:
+                    satisfaction_levels['Very Dissatisfied (1⭐)'] += 1
+            
+            # Filter out zero values
+            non_zero_satisfaction = [(level, count) for level, count in satisfaction_levels.items() if count > 0]
+            
+            if non_zero_satisfaction:
+                levels, counts = zip(*non_zero_satisfaction)
+                colors = ['#27AE60', '#3498DB', '#F39C12', '#E67E22', '#E74C3C']
+                
+                # Map colors based on satisfaction level
+                level_colors = []
+                for level in levels:
+                    if '5⭐' in level:
+                        level_colors.append('#27AE60')  # Green
+                    elif '4⭐' in level:
+                        level_colors.append('#3498DB')  # Blue
+                    elif '3⭐' in level:
+                        level_colors.append('#F39C12')  # Orange
+                    elif '2⭐' in level:
+                        level_colors.append('#E67E22')  # Dark Orange
+                    else:  # 1⭐
+                        level_colors.append('#E74C3C')  # Red
+                
+                wedges, texts, autotexts = ax.pie(counts, labels=levels, colors=level_colors,
+                                                  autopct='%1.1f%%', startangle=90,
+                                                  textprops={'fontsize': 10, 'fontweight': 'bold'},
+                                                  wedgeprops=dict(width=0.7, edgecolor='white', linewidth=2))
+                
+                # Calculate satisfaction metrics
+                total_ratings = sum(counts)
+                satisfied_ratings = sum(count for level, count in zip(levels, counts) if '4⭐' in level or '5⭐' in level)
+                satisfaction_rate = (satisfied_ratings / total_ratings) * 100 if total_ratings > 0 else 0
+                
+                ax.text(0, 0, f'{satisfaction_rate:.1f}%\nSatisfied\n({satisfied_ratings}/{total_ratings})', 
+                        ha='center', va='center', fontsize=12, fontweight='bold', color='#2C3E50')
+            else:
+                ax.text(0.5, 0.5, 'No rating data available', 
+                       ha='center', va='center', fontsize=16, color='#7F8C8D')
+        
+        period_text = f"({period} days)" if period > 0 else "(All Time)"
+        ax.set_title(f'Customer Satisfaction Analysis {period_text}', fontsize=20, fontweight='bold', pad=20)
+        plt.tight_layout()
+        
+        success = save_plot_to_supabase(plt, "Rating satisfaction analysis plot", chatbot_id, period)
+        return success
+        
+    except Exception as e:
+        logger.error(f"Error generating rating satisfaction analysis plot: {e}")
+        return False
+
+
+@safe_plot_generation
+def generate_rating_volume_correlation_plot(chatbot_id: str, period: int, conversations: List[Dict]):
+    try:
+        plt.style.use('default')
+        fig, ax = plt.subplots(1, 1, figsize=(12, 8), dpi=150)
+        fig.patch.set_facecolor('white')
+        
+        ratings_data = fetch_chatbot_ratings(chatbot_id, period)
+        
+        if not ratings_data:
+            ax.text(0.5, 0.5, 'No rating data available for correlation analysis', 
+                   ha='center', va='center', fontsize=16, color='#7F8C8D')
+            ax.set_xticks([])
+            ax.set_yticks([])
+        else:
+            # Process ratings and conversations by date
+            daily_data = {}
+            
+            # Process ratings
+            for rating_record in ratings_data:
+                try:
+                    created_at = rating_record.get('created_at')
+                    rating = rating_record.get('rating')
+                    
+                    if created_at and rating:
+                        if created_at.endswith('Z'):
+                            timestamp = datetime.fromisoformat(created_at.replace('Z', '+00:00'))
+                        else:
+                            timestamp = datetime.fromisoformat(created_at)
+                        
+                        date_key = timestamp.strftime("%Y-%m-%d")
+                        
+                        if date_key not in daily_data:
+                            daily_data[date_key] = {'ratings': [], 'conversations': 0}
+                        daily_data[date_key]['ratings'].append(rating)
+                        
+                except Exception as e:
+                    logger.debug(f"Error processing rating for correlation: {e}")
+                    continue
+            
+            # Process conversations
+            valid_conversations = validate_conversation_data(conversations)
+            for convo in valid_conversations:
+                try:
+                    date_key = None
+                    if "date_of_convo" in convo and convo["date_of_convo"]:
+                        date_key = convo["date_of_convo"]
+                    elif "created_at" in convo and convo["created_at"]:
+                        timestamp_str = convo["created_at"]
+                        if timestamp_str.endswith('Z'):
+                            timestamp = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
+                        else:
+                            timestamp = datetime.fromisoformat(timestamp_str)
+                        date_key = timestamp.strftime("%Y-%m-%d")
+                    
+                    if date_key:
+                        if date_key not in daily_data:
+                            daily_data[date_key] = {'ratings': [], 'conversations': 0}
+                        daily_data[date_key]['conversations'] += 1
+                        
+                except Exception as e:
+                    logger.debug(f"Error processing conversation for correlation: {e}")
+                    continue
+            
+            if not daily_data:
+                ax.text(0.5, 0.5, 'No correlation data available', 
+                       ha='center', va='center', fontsize=16, color='#7F8C8D')
+            else:
+                # Calculate daily averages and counts
+                conversation_counts = []
+                avg_ratings = []
+                dates = []
+                
+                for date_key in sorted(daily_data.keys()):
+                    data = daily_data[date_key]
+                    if data['ratings']:  # Only include days with ratings
+                        avg_rating = sum(data['ratings']) / len(data['ratings'])
+                        conversation_count = data['conversations']
+                        
+                        conversation_counts.append(conversation_count)
+                        avg_ratings.append(avg_rating)
+                        dates.append(date_key)
+                
+                if len(conversation_counts) >= 2:
+                    # Create scatter plot
+                    scatter = ax.scatter(conversation_counts, avg_ratings, alpha=0.7, s=80, 
+                                       c=avg_ratings, cmap='RdYlGn', vmin=1, vmax=5,
+                                       edgecolors='white', linewidth=1.5)
+                    
+                    plt.colorbar(scatter, ax=ax, label='Average Rating')
+                    
+                    # Add trend line if possible
+                    if len(conversation_counts) > 2:
+                        try:
+                            z = np.polyfit(conversation_counts, avg_ratings, 1)
+                            p = np.poly1d(z)
+                            x_trend = np.linspace(min(conversation_counts), max(conversation_counts), 100)
+                            ax.plot(x_trend, p(x_trend), "--", color='#E74C3C', linewidth=2, alpha=0.8)
+                            
+                            # Calculate correlation
+                            correlation = np.corrcoef(conversation_counts, avg_ratings)[0, 1]
+                            if not np.isnan(correlation):
+                                ax.text(0.05, 0.95, f'Correlation: {correlation:.3f}', transform=ax.transAxes,
+                                        bbox=dict(boxstyle="round,pad=0.3", facecolor="#ECF0F1", alpha=0.8),
+                                        fontsize=11, fontweight='bold')
+                        except Exception as e:
+                            logger.debug(f"Could not fit trend line: {e}")
+                    
+                    ax.set_xlabel('Daily Conversation Count', fontsize=12, fontweight='bold')
+                    ax.set_ylabel('Average Rating', fontsize=12, fontweight='bold')
+                    ax.set_ylim(0.5, 5.5)
+                    ax.grid(True, alpha=0.3)
+                    ax.spines['top'].set_visible(False)
+                    ax.spines['right'].set_visible(False)
+                    
+                else:
+                    ax.text(0.5, 0.5, 'Insufficient data for correlation analysis\n(Need at least 2 data points)', 
+                           ha='center', va='center', fontsize=14, color='#7F8C8D')
+        
+        period_text = f"(Last {period} days)" if period > 0 else "(All Time)"
+        ax.set_title(f'Rating vs Conversation Volume Correlation {period_text}', fontsize=20, fontweight='bold', pad=20)
+        plt.tight_layout()
+        
+        success = save_plot_to_supabase(plt, "Rating volume correlation plot", chatbot_id, period)
+        return success
+        
+    except Exception as e:
+        logger.error(f"Error generating rating volume correlation plot: {e}")
+        return False
+
+
+@safe_plot_generation
 def generate_engagement_level_distribution(conversations: List[Dict], chatbot_id: str, period: int):
     try:
         plt.style.use('default')
@@ -1855,6 +2072,8 @@ def get_conversation_insights(chatbot_id: str, period: int) -> Optional[Dict]:
         logger.info("Generating rating analysis plots...")
         plot_results['rating_distribution'] = generate_rating_distribution_plot(chatbot_id, period)
         plot_results['rating_trends'] = generate_rating_trends_plot(chatbot_id, period)
+        plot_results['rating_satisfaction_analysis'] = generate_rating_satisfaction_analysis_plot(chatbot_id, period)
+        plot_results['rating_volume_correlation'] = generate_rating_volume_correlation_plot(chatbot_id, period, conversations)
 
         successful_plots = sum(1 for result in plot_results.values() if result)
         logger.info(f"Successfully generated {successful_plots}/{len(plot_results)} plots")
