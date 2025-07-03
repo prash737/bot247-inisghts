@@ -1,0 +1,122 @@
+
+{
+  "message_distribution": {
+    "title": "Message Distribution",
+    "description": "Shows the proportion of user queries vs assistant responses in conversations. This pie chart helps understand the interaction balance between users and the chatbot.",
+    "how_made": "Counts total user messages and assistant messages from all conversations and displays them as a percentage breakdown."
+  },
+  
+  "message_length_analysis": {
+    "title": "Message Length Analysis", 
+    "description": "Analyzes the distribution of message lengths (in words) for both user queries and assistant responses. Helps identify communication patterns and response verbosity.",
+    "how_made": "Calculates word count for each message, creates histograms showing density distribution, and displays average lengths with trend lines."
+  },
+  
+  "message_complexity_analysis": {
+    "title": "Message Complexity Distribution",
+    "description": "Categorizes all messages by complexity based on word count: Simple (1-5 words), Moderate (6-15), Complex (16-30), and Very Complex (31+ words).",
+    "how_made": "Counts words in each message and groups them into complexity categories, displayed as a bar chart showing message count per category."
+  },
+  
+  "key_performance_metrics": {
+    "title": "Key Performance Metrics",
+    "description": "Comprehensive overview of chatbot performance including conversation counts, response rates, average message lengths, and an overall performance score.",
+    "how_made": "Calculates metrics from conversation data: response ratio, average lengths, verbosity index, and generates a performance score (0-100) based on response quality."
+  },
+  
+  "sentiment_analysis": {
+    "title": "Sentiment Analysis",
+    "description": "Analyzes the emotional tone of user queries, categorizing them as Positive, Neutral, or Negative to understand user satisfaction and mood.",
+    "how_made": "Uses TextBlob sentiment analysis on user messages, classifying polarity scores: >0.1 (Positive), -0.1 to 0.1 (Neutral), <-0.1 (Negative)."
+  },
+  
+  "sentiment_score_distribution": {
+    "title": "Sentiment Score Distribution",
+    "description": "Shows the detailed distribution of sentiment scores ranging from -1 (very negative) to +1 (very positive) with average sentiment trend.",
+    "how_made": "Plots histogram of raw sentiment polarity scores from TextBlob analysis, includes average line and trend indicators."
+  },
+  
+  "chat_volume_plot": {
+    "title": "Chat Volume Trends",
+    "description": "Displays conversation volume over time - monthly view for all-time data or daily view for specific periods. Shows peak activity periods and trends.",
+    "how_made": "Groups conversations by date, counts daily/monthly totals, and plots as line chart with trend analysis and peak annotations."
+  },
+  
+  "peak_hours_activity": {
+    "title": "Hourly Activity Pattern",
+    "description": "Shows when users are most active throughout the day (24-hour format). Helps identify peak usage hours and optimal support times.",
+    "how_made": "Extracts hour from conversation timestamps, counts activity per hour, and displays as bar chart with peak hour highlighted in red."
+  },
+  
+  "day_of_week_activity": {
+    "title": "Day of Week Activity",
+    "description": "Reveals which days of the week have the highest conversation volume. Useful for staffing and maintenance planning.",
+    "how_made": "Groups conversations by day of week (Monday-Sunday), counts totals per day, with the busiest day highlighted in red."
+  },
+  
+  "business_hours_analysis": {
+    "title": "Business vs After Hours Analysis",
+    "description": "Compares activity during business hours (9AM-5PM) versus after hours (5PM-9AM) to understand usage patterns.",
+    "how_made": "Categorizes conversations by timestamp into business hours (9-17) and after hours (0-9, 17-24), displays as pie chart."
+  },
+  
+  "conversation_quality_analysis": {
+    "title": "Conversation Quality Distribution",
+    "description": "Evaluates conversation quality based on message count, response ratio, and resolution success. Categories: Excellent (80-100), Good (60-79), Fair (40-59), Poor (0-39).",
+    "how_made": "Calculates quality scores using: message depth (30%), response ratio (25%), resolution success (30%), engagement level (15%)."
+  },
+  
+  "quality_correlation": {
+    "title": "Message Depth vs Quality Correlation",
+    "description": "Scatter plot showing relationship between conversation length (total messages) and quality score. Helps identify if longer conversations are better quality.",
+    "how_made": "Plots conversation length (x-axis) vs quality score (y-axis), includes trend line and correlation coefficient calculation."
+  },
+  
+  "resolution_analysis": {
+    "title": "Problem Resolution Analysis",
+    "description": "Shows percentage of conversations that were successfully resolved vs those with unresolved issues based on chatbot response patterns.",
+    "how_made": "Scans assistant responses for unresolved patterns ('Oops', 'I don't know', etc.), calculates resolution rate percentage."
+  },
+  
+  "user_engagement_funnel": {
+    "title": "User Engagement Funnel",
+    "description": "Shows user engagement levels from initial contact to power users based on message count: Initial (1), Engaged (2-4), Active (5-9), Highly Engaged (10-19), Power Users (20+).",
+    "how_made": "Counts user messages per conversation, categorizes into engagement levels, displays as horizontal bar chart with percentages."
+  },
+  
+  "user_message_distribution": {
+    "title": "User Message Distribution",
+    "description": "Histogram showing how many messages users typically send per conversation. Includes average and median indicators.",
+    "how_made": "Counts user messages per conversation, creates histogram distribution, adds vertical lines for average and median values."
+  },
+  
+  "rating_distribution": {
+    "title": "Rating Distribution",
+    "description": "Shows breakdown of 1-5 star ratings given by users. Includes average rating and total count for performance assessment.",
+    "how_made": "Counts occurrences of each rating (1-5 stars), displays as color-coded bar chart (red to green gradient), calculates average."
+  },
+  
+  "rating_trends": {
+    "title": "Rating Trends Over Time",
+    "description": "Timeline view of average daily ratings with volume indicators. Shows how user satisfaction changes over time.",
+    "how_made": "Groups ratings by date, calculates daily averages, plots as line chart with secondary axis showing rating volume per day."
+  },
+  
+  "rating_satisfaction_analysis": {
+    "title": "Customer Satisfaction Analysis",
+    "description": "Categorizes ratings into satisfaction levels and shows overall satisfaction percentage (4-5 stars considered satisfied).",
+    "how_made": "Groups ratings into satisfaction categories, displays as pie chart, calculates satisfaction rate as percentage of 4-5 star ratings."
+  },
+  
+  "rating_volume_correlation": {
+    "title": "Rating vs Conversation Volume Correlation",
+    "description": "Analyzes relationship between daily conversation volume and average ratings to see if busy days affect satisfaction.",
+    "how_made": "Plots daily conversation count vs daily average rating, includes correlation coefficient and trend line analysis."
+  },
+  
+  "engagement_level_distribution": {
+    "title": "Engagement Level Distribution",
+    "description": "Pie chart showing distribution of users across different engagement levels based on their conversation depth and frequency.",
+    "how_made": "Same categorization as engagement funnel but displayed as pie chart showing percentage distribution across engagement levels."
+  }
+}
