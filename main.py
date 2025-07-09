@@ -1,3 +1,4 @@
+
 from supabase import create_client, Client
 import time
 from datetime import datetime, timedelta
@@ -64,21 +65,21 @@ def retry_on_failure(max_retries: int = MAX_RETRIES):
 def fetch_chatbot_ratings(chatbot_id: str, period: int = 0) -> List[Dict]:
     try:
         query = supabase.table('chatbot_ratings').select('rating, created_at').eq('chatbot_id', chatbot_id)
-
+        
         if period > 0:
             current_date = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
             cutoff_date = current_date - timedelta(days=period)
             query = query.gte('created_at', cutoff_date.isoformat())
-
+        
         response = query.execute()
-
+        
         if response.data:
             logger.info(f"Fetched {len(response.data)} ratings for chatbot_id: {chatbot_id}")
             return response.data
         else:
             logger.info(f"No ratings found for chatbot_id: {chatbot_id}")
             return []
-
+            
     except Exception as e:
         logger.error(f"Error fetching ratings for chatbot {chatbot_id}: {e}")
         raise
@@ -91,13 +92,13 @@ def fetch_all_conversations(chatbot_id: str) -> List[Dict]:
             '*', count='exact').eq('chatbot_id', chatbot_id)
         count_response = count_query.execute()
         total_count = count_response.count
-
+        
         if total_count == 0:
             logger.info(f"No conversations found for chatbot_id: {chatbot_id}")
             return []
 
         logger.info(f"Fetching {total_count} conversations for chatbot_id: {chatbot_id}")
-
+        
         all_conversations = []
         for offset in range(0, total_count, BATCH_SIZE):
             try:
@@ -106,20 +107,20 @@ def fetch_all_conversations(chatbot_id: str) -> List[Dict]:
                     .eq('chatbot_id', chatbot_id) \
                     .range(offset, offset + BATCH_SIZE - 1)
                 batch_response = batch_query.execute()
-
+                
                 if batch_response.data:
                     all_conversations.extend(batch_response.data)
                     logger.debug(f"Fetched batch {offset//BATCH_SIZE + 1}/{(total_count//BATCH_SIZE) + 1}")
                 else:
                     logger.warning(f"Empty batch at offset {offset}")
-
+                    
             except Exception as e:
                 logger.error(f"Error fetching batch at offset {offset}: {e}")
                 continue
-
+                
         logger.info(f"Successfully fetched {len(all_conversations)} conversations")
         return all_conversations
-
+        
     except Exception as e:
         logger.error(f"Error fetching conversations for chatbot {chatbot_id}: {e}")
         raise
@@ -129,15 +130,15 @@ def fetch_all_conversations(chatbot_id: str) -> List[Dict]:
 def get_distinct_chatbot_ids() -> List[str]:
     try:
         response = supabase.rpc('get_distinct_chatbot_ids').execute()
-
+        
         if response.data:
             chatbot_ids = [item['chatbot_id'] for item in response.data if item.get('chatbot_id')]
             logger.info(f"Found {len(chatbot_ids)} distinct chatbot IDs")
             return chatbot_ids
-
+            
     except Exception as e:
         logger.warning(f"RPC call failed, falling back to manual method: {e}")
-
+        
     try:
         all_ids = set()
         offset = 0
@@ -159,7 +160,7 @@ def get_distinct_chatbot_ids() -> List[str]:
         result = list(all_ids)
         logger.info(f"Found {len(result)} distinct chatbot IDs using fallback method")
         return result
-
+        
     except Exception as e:
         logger.error(f"Error fetching distinct chatbot IDs: {e}")
         return []
@@ -167,28 +168,28 @@ def get_distinct_chatbot_ids() -> List[str]:
 
 def validate_conversation_data(conversations: List[Dict]) -> List[Dict]:
     valid_conversations = []
-
+    
     for convo in conversations:
         try:
             if not isinstance(convo.get('messages'), list):
                 continue
-
+                
             if not convo.get('id'):
                 continue
-
+                
             if convo.get('date_of_convo'):
                 try:
                     datetime.strptime(convo['date_of_convo'], "%Y-%m-%d")
                 except ValueError:
                     logger.warning(f"Invalid date format for conversation {convo.get('id')}")
                     continue
-
+            
             valid_conversations.append(convo)
-
+            
         except Exception as e:
             logger.warning(f"Error validating conversation {convo.get('id', 'unknown')}: {e}")
             continue
-
+    
     logger.info(f"Validated {len(valid_conversations)}/{len(conversations)} conversations")
     return valid_conversations
 
@@ -208,16 +209,16 @@ def find_unanswered_queries(conversations: List[Dict]) -> List[str]:
                     current_msg = messages[i]
                     if (current_msg.get("role") == "assistant" and
                         any(pattern in current_msg.get("content", "") for pattern in unanswered_patterns)):
-
+                        
                         if i > 0 and messages[i - 1].get("role") == "user":
                             user_content = messages[i - 1].get("content", "").strip()
                             if user_content:
                                 unanswered_queries.append(user_content)
-
+                                
                 except (IndexError, KeyError, TypeError) as e:
                     logger.debug(f"Error processing message in conversation {convo.get('id')}: {e}")
                     continue
-
+                    
         except Exception as e:
             logger.warning(f"Error processing conversation {convo.get('id', 'unknown')}: {e}")
             continue
@@ -234,7 +235,7 @@ def save_plot_to_supabase(plt_fig, plot_name: str, chatbot_id: str, period: int)
         if not plot_name or not chatbot_id:
             logger.error("Invalid plot_name or chatbot_id")
             return False
-
+            
         buf = io.BytesIO()
         plt_fig.savefig(buf, format='png', dpi=150, bbox_inches='tight', 
                        facecolor='white', edgecolor='none')
@@ -252,7 +253,7 @@ def save_plot_to_supabase(plt_fig, plot_name: str, chatbot_id: str, period: int)
                 "contentType": "image/png",
                 "upsert": "true"
             })
-
+        
         if response:
             logger.debug(f"Successfully uploaded {plot_name}")
             return True
@@ -289,10 +290,10 @@ def generate_message_distribution(user_queries: List[str], assistant_responses: 
         plt.style.use('default')
         fig, ax = plt.subplots(1, 1, figsize=(12, 10), dpi=150)
         fig.patch.set_facecolor('white')
-
+        
         total_queries = len(user_queries) if user_queries else 0
         total_responses = len(assistant_responses) if assistant_responses else 0
-
+        
         if total_queries == 0 and total_responses == 0:
             ax.text(0.5, 0.5, 'No conversation data available', 
                    ha='center', va='center', fontsize=16, color='#7F8C8D')
@@ -302,29 +303,29 @@ def generate_message_distribution(user_queries: List[str], assistant_responses: 
             labels = ['User Queries', 'Assistant Responses']
             sizes = [total_queries, total_responses]
             colors = ['#3498DB', '#E74C3C']
-
+            
             non_zero_data = [(label, size, color) for label, size, color in zip(labels, sizes, colors) if size > 0]
-
+            
             if non_zero_data:
                 labels, sizes, colors = zip(*non_zero_data)
-
+                
                 wedges, texts, autotexts = ax.pie(sizes, labels=labels, colors=colors, 
                                                   autopct='%1.1f%%', startangle=90,
                                                   wedgeprops=dict(width=0.6, edgecolor='white', linewidth=3),
                                                   textprops={'fontsize': 14, 'fontweight': 'bold'})
-
+                
                 total_messages = sum(sizes)
                 ax.text(0, 0.1, f'{total_messages:,}', ha='center', va='center', 
                         fontsize=20, fontweight='bold', color='#2C3E50')
                 ax.text(0, -0.1, 'Total Messages', ha='center', va='center', 
                         fontsize=12, color='#7F8C8D')
-
+        
         ax.set_title('Message Distribution', fontsize=20, fontweight='bold', pad=20)
         plt.tight_layout()
-
+        
         success = save_plot_to_supabase(plt, "Message distribution plot", chatbot_id, period)
         return success
-
+        
     except Exception as e:
         logger.error(f"Error generating message distribution: {e}")
         return False
@@ -337,7 +338,7 @@ def generate_message_length_analysis(user_queries: List[str], assistant_response
         plt.style.use('default')
         fig, ax = plt.subplots(1, 1, figsize=(12, 8), dpi=150)
         fig.patch.set_facecolor('white')
-
+        
         if not user_queries and not assistant_responses:
             ax.text(0.5, 0.5, 'No conversation data available', 
                    ha='center', va='center', fontsize=16, color='#7F8C8D')
@@ -346,7 +347,7 @@ def generate_message_length_analysis(user_queries: List[str], assistant_response
         else:
             query_lengths = [len(str(q).split()) for q in user_queries if q and str(q).strip()]
             response_lengths = [len(str(r).split()) for r in assistant_responses if r and str(r).strip()]
-
+            
             if not query_lengths and not response_lengths:
                 ax.text(0.5, 0.5, 'No valid message data available', 
                        ha='center', va='center', fontsize=16, color='#7F8C8D')
@@ -355,40 +356,40 @@ def generate_message_length_analysis(user_queries: List[str], assistant_response
                     max(query_lengths) if query_lengths else 0, 
                     max(response_lengths) if response_lengths else 0
                 )
-
+                
                 if max_length > 0:
                     bins = np.linspace(0, min(max_length, 100), 25)
-
+                    
                     if query_lengths:
                         ax.hist(query_lengths, bins=bins, alpha=0.7, label='User Queries', 
                                 color='#3498DB', density=True, edgecolor='white')
                     if response_lengths:
                         ax.hist(response_lengths, bins=bins, alpha=0.7, label='Assistant Responses', 
                                 color='#E74C3C', density=True, edgecolor='white')
-
+                    
                     if query_lengths:
                         avg_query = np.mean(query_lengths)
                         ax.axvline(avg_query, color='#2980B9', linestyle='--', linewidth=2,
                                    label=f'Avg Query: {avg_query:.1f} words')
-
+                    
                     if response_lengths:
                         avg_response = np.mean(response_lengths)
                         ax.axvline(avg_response, color='#C0392B', linestyle='--', linewidth=2,
                                    label=f'Avg Response: {avg_response:.1f} words')
-
+                    
                     ax.set_xlabel('Message Length (words)', fontsize=12, fontweight='bold')
                     ax.set_ylabel('Density', fontsize=12, fontweight='bold')
                     ax.legend(fontsize=10, frameon=True, fancybox=True, shadow=True)
                     ax.grid(True, alpha=0.3)
                     ax.spines['top'].set_visible(False)
                     ax.spines['right'].set_visible(False)
-
+        
         ax.set_title('Message Length Distribution', fontsize=20, fontweight='bold', pad=20)
         plt.tight_layout()
-
+        
         success = save_plot_to_supabase(plt, "Message length analysis plot", chatbot_id, period)
         return success
-
+        
     except Exception as e:
         logger.error(f"Error generating message length analysis: {e}")
         return False
@@ -401,7 +402,7 @@ def generate_message_complexity_analysis(user_queries: List[str], assistant_resp
         plt.style.use('default')
         fig, ax = plt.subplots(1, 1, figsize=(12, 8), dpi=150)
         fig.patch.set_facecolor('white')
-
+        
         if not user_queries and not assistant_responses:
             ax.text(0.5, 0.5, 'No conversation data available', 
                    ha='center', va='center', fontsize=16, color='#7F8C8D')
@@ -409,14 +410,14 @@ def generate_message_complexity_analysis(user_queries: List[str], assistant_resp
             ax.set_yticks([])
         else:
             all_messages = [msg for msg in (user_queries + assistant_responses) if msg and str(msg).strip()]
-
+            
             if not all_messages:
                 ax.text(0.5, 0.5, 'No valid messages available', 
                        ha='center', va='center', fontsize=16, color='#7F8C8D')
             else:
                 complexity_data = {'Simple\n(1-5 words)': 0, 'Moderate\n(6-15 words)': 0, 
                                  'Complex\n(16-30 words)': 0, 'Very Complex\n(31+ words)': 0}
-
+                
                 for msg in all_messages:
                     try:
                         word_count = len(str(msg).split())
@@ -431,11 +432,11 @@ def generate_message_complexity_analysis(user_queries: List[str], assistant_resp
                     except Exception as e:
                         logger.debug(f"Error processing message complexity: {e}")
                         continue
-
+                
                 categories = list(complexity_data.keys())
                 values = list(complexity_data.values())
                 colors_complexity = ['#2ECC71', '#F39C12', '#E67E22', '#E74C3C']
-
+                
                 if sum(values) > 0:
                     bars = ax.bar(categories, values, color=colors_complexity, alpha=0.8, 
                                   edgecolor='white', linewidth=2)
@@ -443,7 +444,7 @@ def generate_message_complexity_analysis(user_queries: List[str], assistant_resp
                     ax.grid(True, alpha=0.3, axis='y')
                     ax.spines['top'].set_visible(False)
                     ax.spines['right'].set_visible(False)
-
+                    
                     max_value = max(values) if values else 0
                     for bar, value in zip(bars, values):
                         if value > 0:
@@ -451,13 +452,13 @@ def generate_message_complexity_analysis(user_queries: List[str], assistant_resp
                                    bar.get_height() + max_value*0.02,
                                    f'{value:,}', ha='center', va='bottom', 
                                    fontweight='bold', fontsize=11)
-
+        
         ax.set_title('Message Complexity Distribution', fontsize=20, fontweight='bold', pad=20)
         plt.tight_layout()
-
+        
         success = save_plot_to_supabase(plt, "Message complexity analysis plot", chatbot_id, period)
         return success
-
+        
     except Exception as e:
         logger.error(f"Error generating message complexity analysis: {e}")
         return False
@@ -471,7 +472,7 @@ def generate_key_performance_metrics(user_queries: List[str], assistant_response
         fig, ax = plt.subplots(1, 1, figsize=(12, 10), dpi=150)
         fig.patch.set_facecolor('white')
         ax.axis('off')
-
+        
         if not user_queries and not assistant_responses:
             ax.text(0.5, 0.5, 'No conversation data available', 
                    ha='center', va='center', fontsize=16, color='#7F8C8D')
@@ -479,16 +480,16 @@ def generate_key_performance_metrics(user_queries: List[str], assistant_response
             total_queries = len(user_queries) if user_queries else 0
             total_responses = len(assistant_responses) if assistant_responses else 0
             all_messages = [msg for msg in (user_queries + assistant_responses) if msg and str(msg).strip()]
-
+            
             try:
                 valid_queries = [q for q in user_queries if q and str(q).strip()]
                 valid_responses = [r for r in assistant_responses if r and str(r).strip()]
-
+                
                 avg_query_length = np.mean([len(str(q).split()) for q in valid_queries]) if valid_queries else 0
                 avg_response_length = np.mean([len(str(r).split()) for r in valid_responses]) if valid_responses else 0
                 response_ratio = total_responses / total_queries if total_queries > 0 else 0
                 verbosity_index = avg_response_length / avg_query_length if avg_query_length > 0 else 0
-
+                
                 metrics = [
                     ('Total Conversations', f'{len(set(all_messages)):,}'),
                     ('Response Rate', f'{response_ratio:.2f}:1'),
@@ -497,39 +498,39 @@ def generate_key_performance_metrics(user_queries: List[str], assistant_response
                     ('Verbosity Index', f'{verbosity_index:.2f}x'),
                     ('Total Word Count', f'{sum(len(str(msg).split()) for msg in all_messages):,}')
                 ]
-
+                
                 y_start = 0.85
                 for i, (metric, value) in enumerate(metrics):
                     y_pos = y_start - (i * 0.12)
-
+                    
                     ax.text(0.05, y_pos, metric, fontsize=16, fontweight='bold', 
                             transform=ax.transAxes, va='center')
                     ax.text(0.95, y_pos, value, fontsize=16, transform=ax.transAxes, 
                             va='center', ha='right', color='#2C3E50',
                             bbox=dict(boxstyle="round,pad=0.4", facecolor="#ECF0F1", 
                                      edgecolor='#BDC3C7', linewidth=1))
-
+                
                 if total_queries > 0:
                     performance_score = min(100, (response_ratio * 50) + (min(avg_response_length, 20) * 2.5))
                     performance_level = 'Excellent' if performance_score >= 80 else 'Good' if performance_score >= 60 else 'Fair'
                     performance_color = '#27AE60' if performance_score >= 80 else '#F39C12' if performance_score >= 60 else '#E74C3C'
-
+                    
                     ax.text(0.5, 0.15, f'Performance: {performance_level} ({performance_score:.0f}/100)', 
                             transform=ax.transAxes, ha='center', va='center', fontsize=18, fontweight='bold',
                             bbox=dict(boxstyle="round,pad=0.5", facecolor=performance_color, alpha=0.2, 
                                      edgecolor=performance_color, linewidth=2))
-
+                     
             except Exception as e:
                 logger.error(f"Error calculating performance metrics: {e}")
                 ax.text(0.5, 0.5, 'Error calculating metrics', 
                        ha='center', va='center', fontsize=16, color='#E74C3C')
-
+        
         ax.set_title('Key Performance Metrics', fontsize=24, fontweight='bold', y=0.95)
         plt.tight_layout()
-
+        
         success = save_plot_to_supabase(plt, "Key performance metrics plot", chatbot_id, period)
         return success
-
+        
     except Exception as e:
         logger.error(f"Error generating key performance metrics: {e}")
         return False
@@ -541,7 +542,7 @@ def generate_sentiment_analysis(user_queries: List[str], chatbot_id: str, period
         plt.style.use('default')
         fig, ax = plt.subplots(1, 1, figsize=(12, 10), dpi=150)
         fig.patch.set_facecolor('white')
-
+        
         if not user_queries:
             ax.text(0.5, 0.5, 'No queries available for sentiment analysis',
                    ha='center', va='center', fontsize=16, color='#7F8C8D')
@@ -550,28 +551,28 @@ def generate_sentiment_analysis(user_queries: List[str], chatbot_id: str, period
         else:
             sentiments = {"Positive": 0, "Neutral": 0, "Negative": 0}
             valid_queries = 0
-
+            
             for query in user_queries:
                 try:
                     if not query or not str(query).strip():
                         continue
-
+                        
                     analysis = TextBlob(str(query))
                     polarity = analysis.sentiment.polarity
-
+                    
                     if polarity > 0.1:
                         sentiments["Positive"] += 1
                     elif polarity < -0.1:
                         sentiments["Negative"] += 1
                     else:
                         sentiments["Neutral"] += 1
-
+                    
                     valid_queries += 1
-
+                    
                 except Exception as e:
                     logger.debug(f"Error analyzing sentiment for query: {e}")
                     continue
-
+            
             if valid_queries == 0:
                 ax.text(0.5, 0.5, 'No valid queries for sentiment analysis',
                        ha='center', va='center', fontsize=16, color='#7F8C8D')
@@ -579,13 +580,13 @@ def generate_sentiment_analysis(user_queries: List[str], chatbot_id: str, period
                 ordered_labels = ["Positive", "Neutral", "Negative"]
                 ordered_values = [sentiments[label] for label in ordered_labels]
                 colors = ["#27AE60", "#F39C12", "#E74C3C"]
-
+                
                 non_zero_data = [(label, value, color) for label, value, color in 
                                zip(ordered_labels, ordered_values, colors) if value > 0]
-
+                
                 if non_zero_data:
                     labels, values, colors = zip(*non_zero_data)
-
+                    
                     wedges, texts, autotexts = ax.pie(
                         values, labels=labels, colors=colors,
                         autopct=lambda pct: f'{pct:.1f}%\n({int(pct/100*sum(values))})',
@@ -593,12 +594,12 @@ def generate_sentiment_analysis(user_queries: List[str], chatbot_id: str, period
                         textprops={'fontsize': 14, 'fontweight': 'bold'},
                         wedgeprops=dict(width=0.6, edgecolor='white', linewidth=3)
                     )
-
+                    
                     for autotext in autotexts:
                         autotext.set_color('white')
                         autotext.set_fontweight('bold')
                         autotext.set_bbox(dict(boxstyle="round,pad=0.3", facecolor='black', alpha=0.8))
-
+                    
                     total_queries = sum(values)
                     ax.text(0, 0.15, 'SENTIMENT', ha='center', va='center', 
                             fontsize=16, fontweight='bold', color='#2C3E50')
@@ -606,13 +607,13 @@ def generate_sentiment_analysis(user_queries: List[str], chatbot_id: str, period
                             fontsize=24, fontweight='bold', color='#2C3E50')
                     ax.text(0, -0.15, 'QUERIES', ha='center', va='center', 
                             fontsize=12, fontweight='bold', color='#7F8C8D')
-
+        
         ax.set_title('Sentiment Analysis', fontsize=20, fontweight='bold', pad=20)
         plt.tight_layout()
-
+        
         success = save_plot_to_supabase(plt, "Sentiment analysis plot", chatbot_id, period)
         return success
-
+        
     except Exception as e:
         logger.error(f"Error generating sentiment analysis: {e}")
         return False
@@ -624,7 +625,7 @@ def generate_sentiment_score_distribution(user_queries: List[str], chatbot_id: s
         plt.style.use('default')
         fig, ax = plt.subplots(1, 1, figsize=(12, 8), dpi=150)
         fig.patch.set_facecolor('white')
-
+        
         if not user_queries:
             ax.text(0.5, 0.5, 'No queries available for sentiment analysis',
                    ha='center', va='center', fontsize=16, color='#7F8C8D')
@@ -632,19 +633,19 @@ def generate_sentiment_score_distribution(user_queries: List[str], chatbot_id: s
             ax.set_yticks([])
         else:
             sentiment_scores = []
-
+            
             for query in user_queries:
                 try:
                     if not query or not str(query).strip():
                         continue
-
+                        
                     analysis = TextBlob(str(query))
                     sentiment_scores.append(analysis.sentiment.polarity)
-
+                    
                 except Exception as e:
                     logger.debug(f"Error analyzing sentiment score: {e}")
                     continue
-
+            
             if not sentiment_scores:
                 ax.text(0.5, 0.5, 'No valid sentiment scores available',
                        ha='center', va='center', fontsize=16, color='#7F8C8D')
@@ -653,18 +654,18 @@ def generate_sentiment_score_distribution(user_queries: List[str], chatbot_id: s
                        edgecolor='white', density=True)
                 ax.axvline(0, color='#34495E', linestyle='-', linewidth=2, alpha=0.7, 
                           label='Neutral Line')
-
+                
                 mean_sentiment = np.mean(sentiment_scores)
                 ax.axvline(mean_sentiment, color='#E74C3C', linestyle='--', linewidth=2, 
                           label=f'Average: {mean_sentiment:.3f}')
-
+                
                 ax.set_xlabel('Sentiment Score', fontsize=14, fontweight='bold')
                 ax.set_ylabel('Density', fontsize=14, fontweight='bold')
                 ax.legend(fontsize=12, frameon=True, fancybox=True, shadow=True)
                 ax.grid(True, alpha=0.3)
                 ax.spines['top'].set_visible(False)
                 ax.spines['right'].set_visible(False)
-
+                
                 y_max = ax.get_ylim()[1]
                 ax.text(-0.8, y_max*0.8, 'Very\nNegative', ha='center', va='center', 
                         fontsize=10, bbox=dict(boxstyle="round,pad=0.3", facecolor="#E74C3C", alpha=0.3))
@@ -672,13 +673,13 @@ def generate_sentiment_score_distribution(user_queries: List[str], chatbot_id: s
                         fontsize=10, bbox=dict(boxstyle="round,pad=0.3", facecolor="#F39C12", alpha=0.3))
                 ax.text(0.8, y_max*0.8, 'Very\nPositive', ha='center', va='center', 
                         fontsize=10, bbox=dict(boxstyle="round,pad=0.3", facecolor="#27AE60", alpha=0.3))
-
+        
         ax.set_title('Sentiment Score Distribution', fontsize=20, fontweight='bold', pad=20)
         plt.tight_layout()
-
+        
         success = save_plot_to_supabase(plt, "Sentiment score distribution plot", chatbot_id, period)
         return success
-
+        
     except Exception as e:
         logger.error(f"Error generating sentiment score distribution: {e}")
         return False
@@ -690,9 +691,9 @@ def generate_chat_volume_plot(conversations: List[Dict], chatbot_id: str, period
         plt.style.use('default')
         fig, ax = plt.subplots(1, 1, figsize=(14, 8), dpi=150)
         fig.patch.set_facecolor('white')
-
+        
         valid_conversations = validate_conversation_data(conversations)
-
+        
         if period == 0:
             monthly_counts = {}
             for convo in valid_conversations:
@@ -714,19 +715,18 @@ def generate_chat_volume_plot(conversations: List[Dict], chatbot_id: str, period
             else:
                 dates = sorted(monthly_counts.keys())
                 counts = [monthly_counts[date] for date in dates]
-                ```python
-formatted_dates = [datetime.strptime(date, "%Y-%m").strftime("%b %Y") for date in dates]
+                formatted_dates = [datetime.strptime(date, "%Y-%m").strftime("%b %Y") for date in dates]
 
                 ax.plot(formatted_dates, counts, marker='o', linewidth=3, markersize=8, 
                         color='#3498DB', markerfacecolor='#E74C3C', markeredgecolor='white', markeredgewidth=2)
                 ax.fill_between(formatted_dates, counts, alpha=0.3, color='#3498DB')
-
+                
                 ax.set_ylabel('Number of Conversations', fontsize=14, fontweight='bold')
                 ax.tick_params(axis='x', rotation=45, labelsize=11)
                 ax.grid(True, alpha=0.3, linestyle='--')
                 ax.spines['top'].set_visible(False)
                 ax.spines['right'].set_visible(False)
-
+                
                 if counts:
                     max_count = max(counts)
                     max_idx = counts.index(max_count)
@@ -735,7 +735,7 @@ formatted_dates = [datetime.strptime(date, "%Y-%m").strftime("%b %Y") for date i
                                arrowprops=dict(arrowstyle='->', color='#E74C3C', lw=2),
                                fontsize=12, ha='center', fontweight='bold',
                                bbox=dict(boxstyle="round,pad=0.3", facecolor="#E74C3C", alpha=0.3))
-
+                
         else:
             current_date = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
             daily_counts = {}
@@ -768,13 +768,13 @@ formatted_dates = [datetime.strptime(date, "%Y-%m").strftime("%b %Y") for date i
                 ax.plot(formatted_dates, counts, marker='o', linewidth=3, markersize=6, 
                         color='#3498DB', markerfacecolor='#E74C3C', markeredgecolor='white', markeredgewidth=2)
                 ax.fill_between(formatted_dates, counts, alpha=0.3, color='#3498DB')
-
+                
                 ax.set_ylabel('Number of Conversations', fontsize=14, fontweight='bold')
                 ax.tick_params(axis='x', rotation=45, labelsize=11)
                 ax.grid(True, alpha=0.3)
                 ax.spines['top'].set_visible(False)
                 ax.spines['right'].set_visible(False)
-
+                
                 if len(counts) > 2:
                     try:
                         z = np.polyfit(range(len(counts)), counts, 1)
@@ -784,14 +784,14 @@ formatted_dates = [datetime.strptime(date, "%Y-%m").strftime("%b %Y") for date i
                         ax.legend(fontsize=12)
                     except np.RankWarning:
                         logger.debug("Could not fit trend line")
-
+        
         title = f'Chat Volume Trend (Last {period} Days)' if period > 0 else 'Chat Volume Trend (All Time)'
         ax.set_title(title, fontsize=20, fontweight='bold', pad=20)
         plt.tight_layout()
-
+        
         success = save_plot_to_supabase(plt, "Chat volume plot", chatbot_id, period)
         return success
-
+        
     except Exception as e:
         logger.error(f"Error generating chat volume plot: {e}")
         return False
@@ -803,11 +803,11 @@ def generate_peak_hours_activity_plot(conversations: List[Dict], chatbot_id: str
         plt.style.use('default')
         fig, ax = plt.subplots(1, 1, figsize=(14, 8), dpi=150)
         fig.patch.set_facecolor('white')
-
+        
         hourly_activity = {hour: 0 for hour in range(24)}
-
+        
         valid_conversations = validate_conversation_data(conversations)
-
+        
         for convo in valid_conversations:
             if "messages" not in convo:
                 continue
@@ -826,7 +826,7 @@ def generate_peak_hours_activity_plot(conversations: List[Dict], chatbot_id: str
                 continue
 
         total_activity = sum(hourly_activity.values())
-
+        
         if total_activity == 0:
             ax.text(0.5, 0.5, 'No activity data available', 
                    ha='center', va='center', fontsize=16, color='#7F8C8D')
@@ -835,15 +835,15 @@ def generate_peak_hours_activity_plot(conversations: List[Dict], chatbot_id: str
         else:
             hours = list(range(24))
             activity_counts = [hourly_activity[hour] for hour in hours]
-
+            
             bars = ax.bar(hours, activity_counts, color='#3498DB', alpha=0.7, 
                          edgecolor='white', linewidth=1)
-
+            
             if max(activity_counts) > 0:
                 peak_hour = hours[activity_counts.index(max(activity_counts))]
                 bars[peak_hour].set_color('#E74C3C')
                 bars[peak_hour].set_alpha(0.9)
-
+            
             ax.set_xlabel('Hour of Day', fontsize=12, fontweight='bold')
             ax.set_ylabel('Number of Conversations', fontsize=12, fontweight='bold')
             ax.set_xticks(range(0, 24, 2))
@@ -851,14 +851,14 @@ def generate_peak_hours_activity_plot(conversations: List[Dict], chatbot_id: str
             ax.grid(True, alpha=0.3, axis='y')
             ax.spines['top'].set_visible(False)
             ax.spines['right'].set_visible(False)
-
+        
         period_text = f"({period} days)" if period > 0 else "(All Time)"
         ax.set_title(f'Hourly Activity Pattern {period_text}', fontsize=20, fontweight='bold', pad=20)
         plt.tight_layout()
-
+        
         success = save_plot_to_supabase(plt, "Peak hours activity plot", chatbot_id, period)
         return success
-
+        
     except Exception as e:
         logger.error(f"Error generating peak hours activity plot: {e}")
         return False
@@ -870,12 +870,12 @@ def generate_day_of_week_activity_plot(conversations: List[Dict], chatbot_id: st
         plt.style.use('default')
         fig, ax = plt.subplots(1, 1, figsize=(12, 8), dpi=150)
         fig.patch.set_facecolor('white')
-
+        
         daily_activity = {day: 0 for day in range(7)}
         day_names = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
-
+        
         valid_conversations = validate_conversation_data(conversations)
-
+        
         for convo in valid_conversations:
             if "messages" not in convo:
                 continue
@@ -898,7 +898,7 @@ def generate_day_of_week_activity_plot(conversations: List[Dict], chatbot_id: st
                 continue
 
         total_activity = sum(daily_activity.values())
-
+        
         if total_activity == 0:
             ax.text(0.5, 0.5, 'No activity data available', 
                    ha='center', va='center', fontsize=16, color='#7F8C8D')
@@ -908,32 +908,32 @@ def generate_day_of_week_activity_plot(conversations: List[Dict], chatbot_id: st
             day_counts = [daily_activity[day] for day in range(7)]
             day_bars = ax.bar(day_names, day_counts, color='#27AE60', alpha=0.7, 
                              edgecolor='white', linewidth=1)
-
+            
             if max(day_counts) > 0:
                 busiest_day_idx = day_counts.index(max(day_counts))
                 day_bars[busiest_day_idx].set_color('#E74C3C')
                 day_bars[busiest_day_idx].set_alpha(0.9)
-
+            
             ax.set_ylabel('Number of Conversations', fontsize=12, fontweight='bold')
             ax.tick_params(axis='x', rotation=45)
             ax.grid(True, alpha=0.3, axis='y')
             ax.spines['top'].set_visible(False)
             ax.spines['right'].set_visible(False)
-
+            
             max_count = max(day_counts) if day_counts else 0
             for bar, count in zip(day_bars, day_counts):
                 if count > 0:
                     ax.text(bar.get_x() + bar.get_width()/2, 
                            bar.get_height() + max_count*0.02,
                            str(count), ha='center', va='bottom', fontweight='bold')
-
+        
         period_text = f"({period} days)" if period > 0 else "(All Time)"
         ax.set_title(f'Day of Week Activity {period_text}', fontsize=20, fontweight='bold', pad=20)
         plt.tight_layout()
-
+        
         success = save_plot_to_supabase(plt, "Day of week activity plot", chatbot_id, period)
         return success
-
+        
     except Exception as e:
         logger.error(f"Error generating day of week activity plot: {e}")
         return False
@@ -945,11 +945,11 @@ def generate_business_hours_analysis_plot(conversations: List[Dict], chatbot_id:
         plt.style.use('default')
         fig, ax = plt.subplots(1, 1, figsize=(10, 10), dpi=150)
         fig.patch.set_facecolor('white')
-
+        
         hourly_activity = {hour: 0 for hour in range(24)}
-
+        
         valid_conversations = validate_conversation_data(conversations)
-
+        
         for convo in valid_conversations:
             if "messages" not in convo:
                 continue
@@ -968,7 +968,7 @@ def generate_business_hours_analysis_plot(conversations: List[Dict], chatbot_id:
                 continue
 
         total_activity = sum(hourly_activity.values())
-
+        
         if total_activity == 0:
             ax.text(0.5, 0.5, 'No activity data available', 
                    ha='center', va='center', fontsize=16, color='#7F8C8D')
@@ -977,39 +977,39 @@ def generate_business_hours_analysis_plot(conversations: List[Dict], chatbot_id:
         else:
             business_hours = list(range(9, 17))
             after_hours = list(range(0, 9)) + list(range(17, 24))
-
+            
             business_activity = sum(hourly_activity[hour] for hour in business_hours)
             after_hours_activity = sum(hourly_activity[hour] for hour in after_hours)
-
+            
             time_periods = ['Business Hours\n(9AM-5PM)', 'After Hours\n(5PM-9AM)']
             time_counts = [business_activity, after_hours_activity]
             time_colors = ['#3498DB', '#E67E22']
-
+            
             non_zero_data = [(period, count, color) for period, count, color in 
                            zip(time_periods, time_counts, time_colors) if count > 0]
-
+            
             if non_zero_data:
                 periods, counts, colors = zip(*non_zero_data)
-
+                
                 wedges, texts, autotexts = ax.pie(counts, labels=periods, colors=colors,
                                                   autopct='%1.1f%%', startangle=90,
                                                   textprops={'fontsize': 12, 'fontweight': 'bold'},
                                                   wedgeprops=dict(width=0.6, edgecolor='white', linewidth=2))
-
+                
                 total_count = sum(counts)
                 ax.text(0, 0, f'{total_count:,}\nTotal', ha='center', va='center', 
                         fontsize=14, fontweight='bold', color='#2C3E50')
             else:
                 ax.text(0.5, 0.5, 'No activity data available', 
                        ha='center', va='center', fontsize=16, color='#7F8C8D')
-
+        
         period_text = f"({period} days)" if period > 0 else "(All Time)"
         ax.set_title(f'Business vs After Hours {period_text}', fontsize=20, fontweight='bold', pad=20)
         plt.tight_layout()
-
+        
         success = save_plot_to_supabase(plt, "Business hours analysis plot", chatbot_id, period)
         return success
-
+        
     except Exception as e:
         logger.error(f"Error generating business hours analysis plot: {e}")
         return False
@@ -1021,9 +1021,9 @@ def generate_conversation_quality_analysis(conversations: List[Dict], chatbot_id
         plt.style.use('default')
         fig, ax = plt.subplots(1, 1, figsize=(12, 8), dpi=150)
         fig.patch.set_facecolor('white')
-
+        
         valid_conversations = validate_conversation_data(conversations)
-
+        
         if not valid_conversations:
             ax.text(0.5, 0.5, 'No conversation data available', 
                    ha='center', va='center', fontsize=16, color='#7F8C8D')
@@ -1031,7 +1031,7 @@ def generate_conversation_quality_analysis(conversations: List[Dict], chatbot_id
             ax.set_yticks([])
         else:
             quality_scores = []
-
+            
             for convo in valid_conversations:
                 if "messages" not in convo or not isinstance(convo["messages"], list):
                     continue
@@ -1040,7 +1040,7 @@ def generate_conversation_quality_analysis(conversations: List[Dict], chatbot_id
                     messages = convo["messages"]
                     user_messages = [msg for msg in messages if msg.get("role") == "user"]
                     assistant_messages = [msg for msg in messages if msg.get("role") == "assistant"]
-
+                    
                     if not user_messages:
                         continue
 
@@ -1048,26 +1048,26 @@ def generate_conversation_quality_analysis(conversations: List[Dict], chatbot_id
                     user_count = len(user_messages)
                     assistant_count = len(assistant_messages)
                     response_ratio = assistant_count / user_count if user_count > 0 else 0
-
+                    
                     unanswered_patterns = ["Oops", "I don't know", "I'm not sure", "I can't help"]
                     has_unanswered = any(
                         any(pattern in msg.get("content", "") for pattern in unanswered_patterns)
                         for msg in assistant_messages
                     )
-                    # More accurate quality score calculation
-                    message_depth_score = min(total_messages, 20) / 20 * 30
-                    response_ratio_score = min(response_ratio, 1.5) / 1.5 * 25
-                    resolution_score = 30 if not has_unanswered else 0
-                    engagement_score = min(15, total_messages * 1.5) if total_messages > 2 else total_messages * 7.5
-
-                    quality_score = min(100, message_depth_score + response_ratio_score + resolution_score + engagement_score)
-
+                    
+                    quality_score = min(100, (
+                        (min(total_messages, 20) / 20 * 30) +
+                        (min(response_ratio, 2) / 2 * 25) +
+                        (30 if not has_unanswered else 0) +
+                        (15 if total_messages > 5 else total_messages * 3)
+                    ))
+                    
                     quality_scores.append(quality_score)
-
+                    
                 except Exception as e:
                     logger.debug(f"Error calculating quality score: {e}")
                     continue
-
+            
             if not quality_scores:
                 ax.text(0.5, 0.5, 'No valid conversation data', 
                        ha='center', va='center', fontsize=16, color='#7F8C8D')
@@ -1082,14 +1082,14 @@ def generate_conversation_quality_analysis(conversations: List[Dict], chatbot_id
                     sum(1 for score in quality_scores if score < 40)
                 ]
                 score_colors = ['#27AE60', '#3498DB', '#F39C12', '#E74C3C']
-
+                
                 bars = ax.bar(score_ranges, score_counts, color=score_colors, alpha=0.8, 
                                edgecolor='white', linewidth=2)
                 ax.set_ylabel('Number of Conversations', fontsize=12, fontweight='bold')
                 ax.grid(True, alpha=0.3, axis='y')
                 ax.spines['top'].set_visible(False)
                 ax.spines['right'].set_visible(False)
-
+                
                 total_convos = len(quality_scores)
                 max_count = max(score_counts) if score_counts else 0
                 for bar, count in zip(bars, score_counts):
@@ -1099,14 +1099,14 @@ def generate_conversation_quality_analysis(conversations: List[Dict], chatbot_id
                                bar.get_height() + max_count*0.02,
                                 f'{count}\n({percentage:.1f}%)', ha='center', va='bottom', 
                                 fontweight='bold', fontsize=10)
-
+        
         period_text = f"({period} days)" if period > 0 else "(All Time)"
         ax.set_title(f'Quality Score Distribution {period_text}', fontsize=20, fontweight='bold', pad=20)
         plt.tight_layout()
-
+        
         success = save_plot_to_supabase(plt, "Conversation quality analysis plot", chatbot_id, period)
         return success
-
+        
     except Exception as e:
         logger.error(f"Error generating conversation quality analysis: {e}")
         return False
@@ -1118,9 +1118,9 @@ def generate_quality_correlation_plot(conversations: List[Dict], chatbot_id: str
         plt.style.use('default')
         fig, ax = plt.subplots(1, 1, figsize=(12, 8), dpi=150)
         fig.patch.set_facecolor('white')
-
+        
         valid_conversations = validate_conversation_data(conversations)
-
+        
         if not valid_conversations:
             ax.text(0.5, 0.5, 'No conversation data available', 
                    ha='center', va='center', fontsize=16, color='#7F8C8D')
@@ -1129,7 +1129,7 @@ def generate_quality_correlation_plot(conversations: List[Dict], chatbot_id: str
         else:
             quality_scores = []
             message_depths = []
-
+            
             for convo in valid_conversations:
                 if "messages" not in convo or not isinstance(convo["messages"], list):
                     continue
@@ -1138,7 +1138,7 @@ def generate_quality_correlation_plot(conversations: List[Dict], chatbot_id: str
                     messages = convo["messages"]
                     user_messages = [msg for msg in messages if msg.get("role") == "user"]
                     assistant_messages = [msg for msg in messages if msg.get("role") == "assistant"]
-
+                    
                     if not user_messages:
                         continue
 
@@ -1146,27 +1146,27 @@ def generate_quality_correlation_plot(conversations: List[Dict], chatbot_id: str
                     user_count = len(user_messages)
                     assistant_count = len(assistant_messages)
                     response_ratio = assistant_count / user_count if user_count > 0 else 0
-
+                    
                     unanswered_patterns = ["Oops", "I don't know", "I'm not sure", "I can't help"]
                     has_unanswered = any(
                         any(pattern in msg.get("content", "") for pattern in unanswered_patterns)
                         for msg in assistant_messages
                     )
-                    # More accurate quality score calculation
-                    message_depth_score = min(total_messages, 20) / 20 * 30
-                    response_ratio_score = min(response_ratio, 1.5) / 1.5 * 25
-                    resolution_score = 30 if not has_unanswered else 0
-                    engagement_score = min(15, total_messages * 1.5) if total_messages > 2 else total_messages * 7.5
-
-                    quality_score = min(100, message_depth_score + response_ratio_score + resolution_score + engagement_score)
-
+                    
+                    quality_score = min(100, (
+                        (min(total_messages, 20) / 20 * 30) +
+                        (min(response_ratio, 2) / 2 * 25) +
+                        (30 if not has_unanswered else 0) +
+                        (15 if total_messages > 5 else total_messages * 3)
+                    ))
+                    
                     quality_scores.append(quality_score)
                     message_depths.append(total_messages)
-
+                    
                 except Exception as e:
                     logger.debug(f"Error calculating correlation data: {e}")
                     continue
-
+            
             if not quality_scores or len(quality_scores) < 2:
                 ax.text(0.5, 0.5, 'Insufficient data for correlation analysis', 
                        ha='center', va='center', fontsize=16, color='#7F8C8D')
@@ -1175,9 +1175,9 @@ def generate_quality_correlation_plot(conversations: List[Dict], chatbot_id: str
             else:
                 scatter = ax.scatter(message_depths, quality_scores, alpha=0.6, s=60, 
                            c=quality_scores, cmap='RdYlGn', edgecolors='white', linewidth=1)
-
+                
                 plt.colorbar(scatter, ax=ax, label='Quality Score')
-
+                
                 if len(message_depths) > 2:
                     try:
                         z = np.polyfit(message_depths, quality_scores, 1)
@@ -1186,13 +1186,13 @@ def generate_quality_correlation_plot(conversations: List[Dict], chatbot_id: str
                         ax.plot(x_trend, p(x_trend), "--", color='#E74C3C', linewidth=2, alpha=0.8)
                     except (np.RankWarning, np.linalg.LinAlgError):
                         logger.debug("Could not fit trend line for correlation")
-
+                
                 ax.set_xlabel('Total Messages per Conversation', fontsize=12, fontweight='bold')
                 ax.set_ylabel('Quality Score', fontsize=12, fontweight='bold')
                 ax.grid(True, alpha=0.3)
                 ax.spines['top'].set_visible(False)
                 ax.spines['right'].set_visible(False)
-
+                
                 try:
                     correlation = np.corrcoef(message_depths, quality_scores)[0, 1]
                     if not np.isnan(correlation):
@@ -1201,14 +1201,14 @@ def generate_quality_correlation_plot(conversations: List[Dict], chatbot_id: str
                                 fontsize=11, fontweight='bold')
                 except Exception as e:
                     logger.debug(f"Could not calculate correlation: {e}")
-
+        
         period_text = f"({period} days)" if period > 0 else "(All Time)"
         ax.set_title(f'Message Depth vs Quality Correlation {period_text}', fontsize=20, fontweight='bold', pad=20)
         plt.tight_layout()
-
+        
         success = save_plot_to_supabase(plt, "Quality correlation plot", chatbot_id, period)
         return success
-
+        
     except Exception as e:
         logger.error(f"Error generating quality correlation plot: {e}")
         return False
@@ -1220,9 +1220,9 @@ def generate_resolution_analysis_plot(conversations: List[Dict], chatbot_id: str
         plt.style.use('default')
         fig, ax = plt.subplots(1, 1, figsize=(10, 10), dpi=150)
         fig.patch.set_facecolor('white')
-
+        
         valid_conversations = validate_conversation_data(conversations)
-
+        
         if not valid_conversations:
             ax.text(0.5, 0.5, 'No conversation data available', 
                    ha='center', va='center', fontsize=16, color='#7F8C8D')
@@ -1230,7 +1230,7 @@ def generate_resolution_analysis_plot(conversations: List[Dict], chatbot_id: str
             ax.set_yticks([])
         else:
             resolution_status = []
-
+            
             for convo in valid_conversations:
                 if "messages" not in convo or not isinstance(convo["messages"], list):
                     continue
@@ -1239,7 +1239,7 @@ def generate_resolution_analysis_plot(conversations: List[Dict], chatbot_id: str
                     messages = convo["messages"]
                     user_messages = [msg for msg in messages if msg.get("role") == "user"]
                     assistant_messages = [msg for msg in messages if msg.get("role") == "assistant"]
-
+                    
                     if not user_messages:
                         continue
 
@@ -1249,11 +1249,11 @@ def generate_resolution_analysis_plot(conversations: List[Dict], chatbot_id: str
                         for msg in assistant_messages
                     )
                     resolution_status.append("Resolved" if not has_unanswered else "Unresolved")
-
+                    
                 except Exception as e:
                     logger.debug(f"Error analyzing resolution status: {e}")
                     continue
-
+            
             if not resolution_status:
                 ax.text(0.5, 0.5, 'No valid conversation data', 
                        ha='center', va='center', fontsize=16, color='#7F8C8D')
@@ -1262,37 +1262,37 @@ def generate_resolution_analysis_plot(conversations: List[Dict], chatbot_id: str
             else:
                 resolved_count = resolution_status.count("Resolved")
                 unresolved_count = resolution_status.count("Unresolved")
-
+                
                 if resolved_count + unresolved_count > 0:
                     resolution_data = [resolved_count, unresolved_count]
                     resolution_labels = ['Resolved', 'Unresolved']
                     resolution_colors = ['#27AE60', '#E74C3C']
-
+                    
                     non_zero_data = [(label, count, color) for label, count, color in 
                                    zip(resolution_labels, resolution_data, resolution_colors) if count > 0]
-
+                    
                     if non_zero_data:
                         labels, counts, colors = zip(*non_zero_data)
-
+                        
                         wedges, texts, autotexts = ax.pie(counts, labels=labels, 
                                                           colors=colors, autopct='%1.1f%%',
                                                           startangle=90, textprops={'fontsize': 12, 'fontweight': 'bold'},
                                                           wedgeprops=dict(width=0.6, edgecolor='white', linewidth=2))
-
+                        
                         resolution_rate = (resolved_count / (resolved_count + unresolved_count)) * 100
                         ax.text(0, 0, f'{resolution_rate:.1f}%\nResolution\nRate', ha='center', va='center', 
                                 fontsize=14, fontweight='bold', color='#2C3E50')
                     else:
                         ax.text(0.5, 0.5, 'No resolution data available', 
                                ha='center', va='center', fontsize=16, color='#7F8C8D')
-
+        
         period_text = f"({period} days)" if period > 0 else "(All Time)"
         ax.set_title(f'Problem Resolution Analysis {period_text}', fontsize=20, fontweight='bold', pad=20)
         plt.tight_layout()
-
+        
         success = save_plot_to_supabase(plt, "Resolution analysis plot", chatbot_id, period)
         return success
-
+        
     except Exception as e:
         logger.error(f"Error generating resolution analysis plot: {e}")
         return False
@@ -1304,9 +1304,9 @@ def generate_user_engagement_funnel(conversations: List[Dict], chatbot_id: str, 
         plt.style.use('default')
         fig, ax = plt.subplots(1, 1, figsize=(14, 10), dpi=150)
         fig.patch.set_facecolor('white')
-
+        
         valid_conversations = validate_conversation_data(conversations)
-
+        
         if not valid_conversations:
             ax.text(0.5, 0.5, 'No engagement data available', 
                    ha='center', va='center', fontsize=16, color='#7F8C8D')
@@ -1320,9 +1320,9 @@ def generate_user_engagement_funnel(conversations: List[Dict], chatbot_id: str, 
                 "Highly Engaged (10-19 msgs)": 0,
                 "Power Users (20+ msgs)": 0
             }
-
+            
             user_message_counts = []
-
+            
             for convo in valid_conversations:
                 if "messages" not in convo or not isinstance(convo["messages"], list):
                     continue
@@ -1331,16 +1331,15 @@ def generate_user_engagement_funnel(conversations: List[Dict], chatbot_id: str, 
                     messages = convo["messages"]
                     user_messages = [msg for msg in messages if msg.get("role") == "user"]
                     user_count = len(user_messages)
-
+                    
                     if user_count == 0:
                         continue
-
+                    
                     user_message_counts.append(user_count)
-
-                    # Categorize into mutually exclusive engagement levels
-                    if user_count == 1:
+                    
+                    if user_count >= 1:
                         engagement_stages["Initial Contact"] += 1
-                    elif 2 <= user_count <= 4:
+                    if 2 <= user_count <= 4:
                         engagement_stages["Engaged (2-4 msgs)"] += 1
                     elif 5 <= user_count <= 9:
                         engagement_stages["Active (5-9 msgs)"] += 1
@@ -1348,11 +1347,11 @@ def generate_user_engagement_funnel(conversations: List[Dict], chatbot_id: str, 
                         engagement_stages["Highly Engaged (10-19 msgs)"] += 1
                     elif user_count >= 20:
                         engagement_stages["Power Users (20+ msgs)"] += 1
-
+                        
                 except Exception as e:
                     logger.debug(f"Error processing engagement data: {e}")
                     continue
-
+            
             if not user_message_counts:
                 ax.text(0.5, 0.5, 'No valid engagement data', 
                        ha='center', va='center', fontsize=16, color='#7F8C8D')
@@ -1362,11 +1361,11 @@ def generate_user_engagement_funnel(conversations: List[Dict], chatbot_id: str, 
                 stages = list(engagement_stages.keys())
                 values = list(engagement_stages.values())
                 colors = ['#1ABC9C', '#3498DB', '#9B59B6', '#E67E22', '#E74C3C']
-
+                
                 y_positions = np.arange(len(stages))[::-1]
                 bars = ax.barh(y_positions, values, color=colors, alpha=0.8, 
                               edgecolor='white', linewidth=2)
-
+                
                 initial_users = values[0] if values else 1
                 max_value = max(values) if values else 0
                 for i, (bar, value) in enumerate(zip(bars, values)):
@@ -1374,21 +1373,21 @@ def generate_user_engagement_funnel(conversations: List[Dict], chatbot_id: str, 
                         percentage = (value / initial_users) * 100
                         ax.text(value + max_value * 0.02, bar.get_y() + bar.get_height()/2,
                                 f'{value:,} ({percentage:.1f}%)', va='center', fontweight='bold', fontsize=11)
-
+                
                 ax.set_yticks(y_positions)
                 ax.set_yticklabels(stages, fontsize=11)
                 ax.set_xlabel('Number of Users', fontsize=12, fontweight='bold')
                 ax.grid(True, alpha=0.3, axis='x')
                 ax.spines['top'].set_visible(False)
                 ax.spines['right'].set_visible(False)
-
+        
         period_text = f"({period} days)" if period > 0 else "(All Time)"
         ax.set_title(f'User Engagement Funnel {period_text}', fontsize=20, fontweight='bold', pad=20)
         plt.tight_layout()
-
+        
         success = save_plot_to_supabase(plt, "User engagement funnel plot", chatbot_id, period)
         return success
-
+        
     except Exception as e:
         logger.error(f"Error generating user engagement funnel: {e}")
         return False
@@ -1400,9 +1399,9 @@ def generate_user_message_distribution(conversations: List[Dict], chatbot_id: st
         plt.style.use('default')
         fig, ax = plt.subplots(1, 1, figsize=(12, 8), dpi=150)
         fig.patch.set_facecolor('white')
-
+        
         valid_conversations = validate_conversation_data(conversations)
-
+        
         if not valid_conversations:
             ax.text(0.5, 0.5, 'No engagement data available', 
                    ha='center', va='center', fontsize=16, color='#7F8C8D')
@@ -1410,7 +1409,7 @@ def generate_user_message_distribution(conversations: List[Dict], chatbot_id: st
             ax.set_yticks([])
         else:
             user_message_counts = []
-
+            
             for convo in valid_conversations:
                 if "messages" not in convo or not isinstance(convo["messages"], list):
                     continue
@@ -1419,14 +1418,14 @@ def generate_user_message_distribution(conversations: List[Dict], chatbot_id: st
                     messages = convo["messages"]
                     user_messages = [msg for msg in messages if msg.get("role") == "user"]
                     user_count = len(user_messages)
-
+                    
                     if user_count > 0:
                         user_message_counts.append(user_count)
-
+                        
                 except Exception as e:
                     logger.debug(f"Error processing user message count: {e}")
                     continue
-
+            
             if not user_message_counts:
                 ax.text(0.5, 0.5, 'No valid engagement data', 
                        ha='center', va='center', fontsize=16, color='#7F8C8D')
@@ -1435,32 +1434,32 @@ def generate_user_message_distribution(conversations: List[Dict], chatbot_id: st
             else:
                 max_messages = max(user_message_counts)
                 bins = min(20, max_messages) if max_messages > 0 else 10
-
+                
                 ax.hist(user_message_counts, bins=bins, 
                         color='#3498DB', alpha=0.7, edgecolor='white', linewidth=1)
-
+                
                 avg_messages = np.mean(user_message_counts)
                 median_messages = np.median(user_message_counts)
-
+                
                 ax.axvline(avg_messages, color='#E74C3C', linestyle='--', linewidth=2,
                            label=f'Average: {avg_messages:.1f}')
                 ax.axvline(median_messages, color='#F39C12', linestyle='--', linewidth=2,
                            label=f'Median: {median_messages:.1f}')
-
+                
                 ax.set_xlabel('Messages per User', fontsize=12, fontweight='bold')
                 ax.set_ylabel('Number of Users', fontsize=12, fontweight='bold')
                 ax.legend(fontsize=11, frameon=True, fancybox=True, shadow=True)
                 ax.grid(True, alpha=0.3)
                 ax.spines['top'].set_visible(False)
                 ax.spines['right'].set_visible(False)
-
+        
         period_text = f"({period} days)" if period > 0 else "(All Time)"
         ax.set_title(f'User Message Distribution {period_text}', fontsize=20, fontweight='bold', pad=20)
         plt.tight_layout()
-
+        
         success = save_plot_to_supabase(plt, "User message distribution plot", chatbot_id, period)
         return success
-
+        
     except Exception as e:
         logger.error(f"Error generating user message distribution: {e}")
         return False
@@ -1472,9 +1471,9 @@ def generate_rating_distribution_plot(chatbot_id: str, period: int):
         plt.style.use('default')
         fig, ax = plt.subplots(1, 1, figsize=(12, 8), dpi=150)
         fig.patch.set_facecolor('white')
-
+        
         ratings_data = fetch_chatbot_ratings(chatbot_id, period)
-
+        
         if not ratings_data:
             ax.text(0.5, 0.5, 'No rating data available', 
                    ha='center', va='center', fontsize=16, color='#7F8C8D')
@@ -1487,14 +1486,14 @@ def generate_rating_distribution_plot(chatbot_id: str, period: int):
                 rating = rating_record.get('rating')
                 if rating in rating_counts:
                     rating_counts[rating] += 1
-
+            
             ratings = list(rating_counts.keys())
             counts = list(rating_counts.values())
             colors = ['#E74C3C', '#E67E22', '#F39C12', '#3498DB', '#27AE60']  # Red to Green gradient
-
+            
             bars = ax.bar(ratings, counts, color=colors, alpha=0.8, 
                          edgecolor='white', linewidth=2)
-
+            
             # Add value labels on bars
             max_count = max(counts) if counts else 0
             for bar, count in zip(bars, counts):
@@ -1503,16 +1502,16 @@ def generate_rating_distribution_plot(chatbot_id: str, period: int):
                            bar.get_height() + max_count*0.02,
                            f'{count}', ha='center', va='bottom', 
                            fontweight='bold', fontsize=12)
-
+            
             # Calculate and display average rating
             total_ratings = sum(rating * count for rating, count in rating_counts.items())
             total_count = sum(counts)
             avg_rating = total_ratings / total_count if total_count > 0 else 0
-
+            
             ax.text(0.98, 0.95, f'Average Rating: {avg_rating:.2f}/5.0\nTotal Ratings: {total_count}', 
                     transform=ax.transAxes, ha='right', va='top', fontsize=12, fontweight='bold',
                     bbox=dict(boxstyle="round,pad=0.5", facecolor="#ECF0F1", alpha=0.8))
-
+            
             ax.set_xlabel('Rating (1-5 Stars)', fontsize=14, fontweight='bold')
             ax.set_ylabel('Number of Ratings', fontsize=14, fontweight='bold')
             ax.set_xticks(ratings)
@@ -1520,14 +1519,14 @@ def generate_rating_distribution_plot(chatbot_id: str, period: int):
             ax.grid(True, alpha=0.3, axis='y')
             ax.spines['top'].set_visible(False)
             ax.spines['right'].set_visible(False)
-
+        
         period_text = f"({period} days)" if period > 0 else "(All Time)"
         ax.set_title(f'Rating Distribution {period_text}', fontsize=20, fontweight='bold', pad=20)
         plt.tight_layout()
-
+        
         success = save_plot_to_supabase(plt, "Rating distribution plot", chatbot_id, period)
         return success
-
+        
     except Exception as e:
         logger.error(f"Error generating rating distribution plot: {e}")
         return False
@@ -1539,9 +1538,9 @@ def generate_rating_trends_plot(chatbot_id: str, period: int):
         plt.style.use('default')
         fig, ax = plt.subplots(1, 1, figsize=(14, 8), dpi=150)
         fig.patch.set_facecolor('white')
-
+        
         ratings_data = fetch_chatbot_ratings(chatbot_id, period)
-
+        
         if not ratings_data:
             ax.text(0.5, 0.5, 'No rating data available', 
                    ha='center', va='center', fontsize=16, color='#7F8C8D')
@@ -1550,29 +1549,29 @@ def generate_rating_trends_plot(chatbot_id: str, period: int):
         else:
             # Process ratings by date
             daily_ratings = {}
-
+            
             for rating_record in ratings_data:
                 try:
                     created_at = rating_record.get('created_at')
                     rating = rating_record.get('rating')
-
+                    
                     if created_at and rating:
                         # Parse the timestamp
                         if created_at.endswith('Z'):
                             timestamp = datetime.fromisoformat(created_at.replace('Z', '+00:00'))
                         else:
                             timestamp = datetime.fromisoformat(created_at)
-
+                        
                         date_key = timestamp.strftime("%Y-%m-%d")
-
+                        
                         if date_key not in daily_ratings:
                             daily_ratings[date_key] = []
                         daily_ratings[date_key].append(rating)
-
+                        
                 except Exception as e:
                     logger.debug(f"Error processing rating timestamp: {e}")
                     continue
-
+            
             if not daily_ratings:
                 ax.text(0.5, 0.5, 'No valid rating data available', 
                        ha='center', va='center', fontsize=16, color='#7F8C8D')
@@ -1581,13 +1580,13 @@ def generate_rating_trends_plot(chatbot_id: str, period: int):
                 dates = sorted(daily_ratings.keys())
                 daily_averages = []
                 daily_counts = []
-
+                
                 for date in dates:
                     ratings_for_date = daily_ratings[date]
                     avg_rating = sum(ratings_for_date) / len(ratings_for_date)
                     daily_averages.append(avg_rating)
                     daily_counts.append(len(ratings_for_date))
-
+                
                 # Format dates for display
                 formatted_dates = []
                 for date in dates:
@@ -1595,17 +1594,17 @@ def generate_rating_trends_plot(chatbot_id: str, period: int):
                         formatted_dates.append(datetime.strptime(date, "%Y-%m-%d").strftime("%m/%d"))
                     else:  # Show month/year for longer periods
                         formatted_dates.append(datetime.strptime(date, "%Y-%m-%d").strftime("%b %Y"))
-
+                
                 # Create the plot
                 line = ax.plot(formatted_dates, daily_averages, marker='o', linewidth=3, markersize=8, 
                               color='#3498DB', markerfacecolor='#E74C3C', markeredgecolor='white', 
                               markeredgewidth=2, label='Average Rating')
-
+                
                 # Add secondary y-axis for count
                 ax2 = ax.twinx()
                 bars = ax2.bar(formatted_dates, daily_counts, alpha=0.3, color='#95A5A6', 
                               label='Number of Ratings')
-
+                
                 # Styling
                 ax.set_ylabel('Average Rating', fontsize=14, fontweight='bold', color='#3498DB')
                 ax2.set_ylabel('Number of Ratings', fontsize=14, fontweight='bold', color='#95A5A6')
@@ -1615,7 +1614,7 @@ def generate_rating_trends_plot(chatbot_id: str, period: int):
                 ax.grid(True, alpha=0.3, linestyle='--')
                 ax.spines['top'].set_visible(False)
                 ax2.spines['top'].set_visible(False)
-
+                
                 # Add trend line if enough data points
                 if len(daily_averages) > 2:
                     try:
@@ -1626,26 +1625,26 @@ def generate_rating_trends_plot(chatbot_id: str, period: int):
                                            label=f'Trend: {"↗" if z[0] > 0 else "↘"}')
                     except np.RankWarning:
                         logger.debug("Could not fit trend line")
-
+                
                 # Add overall statistics
                 overall_avg = sum(daily_averages) / len(daily_averages)
                 total_ratings = sum(daily_counts)
                 ax.text(0.02, 0.98, f'Overall Average: {overall_avg:.2f}/5.0\nTotal Ratings: {total_ratings}', 
                         transform=ax.transAxes, ha='left', va='top', fontsize=11, fontweight='bold',
                         bbox=dict(boxstyle="round,pad=0.4", facecolor="#ECF0F1", alpha=0.9))
-
+                
                 # Combine legends
                 lines1, labels1 = ax.get_legend_handles_labels()
                 lines2, labels2 = ax2.get_legend_handles_labels()
                 ax.legend(lines1 + lines2, labels1 + labels2, loc='upper right', fontsize=10)
-
+        
         period_text = f"(Last {period} days)" if period > 0 else "(All Time)"
         ax.set_title(f'Rating Trends Over Time {period_text}', fontsize=20, fontweight='bold', pad=20)
         plt.tight_layout()
-
+        
         success = save_plot_to_supabase(plt, "Rating trends plot", chatbot_id, period)
         return success
-
+        
     except Exception as e:
         logger.error(f"Error generating rating trends plot: {e}")
         return False
@@ -1657,9 +1656,9 @@ def generate_rating_satisfaction_analysis_plot(chatbot_id: str, period: int):
         plt.style.use('default')
         fig, ax = plt.subplots(1, 1, figsize=(10, 10), dpi=150)
         fig.patch.set_facecolor('white')
-
+        
         ratings_data = fetch_chatbot_ratings(chatbot_id, period)
-
+        
         if not ratings_data:
             ax.text(0.5, 0.5, 'No rating data available', 
                    ha='center', va='center', fontsize=16, color='#7F8C8D')
@@ -1674,7 +1673,7 @@ def generate_rating_satisfaction_analysis_plot(chatbot_id: str, period: int):
                 'Dissatisfied (2⭐)': 0,
                 'Very Dissatisfied (1⭐)': 0
             }
-
+            
             for rating_record in ratings_data:
                 rating = rating_record.get('rating')
                 if rating == 5:
@@ -1687,14 +1686,14 @@ def generate_rating_satisfaction_analysis_plot(chatbot_id: str, period: int):
                     satisfaction_levels['Dissatisfied (2⭐)'] += 1
                 elif rating == 1:
                     satisfaction_levels['Very Dissatisfied (1⭐)'] += 1
-
+            
             # Filter out zero values
             non_zero_satisfaction = [(level, count) for level, count in satisfaction_levels.items() if count > 0]
-
+            
             if non_zero_satisfaction:
                 levels, counts = zip(*non_zero_satisfaction)
                 colors = ['#27AE60', '#3498DB', '#F39C12', '#E67E22', '#E74C3C']
-
+                
                 # Map colors based on satisfaction level
                 level_colors = []
                 for level in levels:
@@ -1708,30 +1707,30 @@ def generate_rating_satisfaction_analysis_plot(chatbot_id: str, period: int):
                         level_colors.append('#E67E22')  # Dark Orange
                     else:  # 1⭐
                         level_colors.append('#E74C3C')  # Red
-
+                
                 wedges, texts, autotexts = ax.pie(counts, labels=levels, colors=level_colors,
                                                   autopct='%1.1f%%', startangle=90,
                                                   textprops={'fontsize': 10, 'fontweight': 'bold'},
                                                   wedgeprops=dict(width=0.7, edgecolor='white', linewidth=2))
-
+                
                 # Calculate satisfaction metrics
                 total_ratings = sum(counts)
                 satisfied_ratings = sum(count for level, count in zip(levels, counts) if '4⭐' in level or '5⭐' in level)
                 satisfaction_rate = (satisfied_ratings / total_ratings) * 100 if total_ratings > 0 else 0
-
+                
                 ax.text(0, 0, f'{satisfaction_rate:.1f}%\nSatisfied\n({satisfied_ratings}/{total_ratings})', 
                         ha='center', va='center', fontsize=12, fontweight='bold', color='#2C3E50')
             else:
                 ax.text(0.5, 0.5, 'No rating data available', 
                        ha='center', va='center', fontsize=16, color='#7F8C8D')
-
+        
         period_text = f"({period} days)" if period > 0 else "(All Time)"
         ax.set_title(f'Customer Satisfaction Analysis {period_text}', fontsize=20, fontweight='bold', pad=20)
         plt.tight_layout()
-
+        
         success = save_plot_to_supabase(plt, "Rating satisfaction analysis plot", chatbot_id, period)
         return success
-
+        
     except Exception as e:
         logger.error(f"Error generating rating satisfaction analysis plot: {e}")
         return False
@@ -1743,9 +1742,9 @@ def generate_rating_volume_correlation_plot(chatbot_id: str, period: int, conver
         plt.style.use('default')
         fig, ax = plt.subplots(1, 1, figsize=(12, 8), dpi=150)
         fig.patch.set_facecolor('white')
-
+        
         ratings_data = fetch_chatbot_ratings(chatbot_id, period)
-
+        
         if not ratings_data:
             ax.text(0.5, 0.5, 'No rating data available for correlation analysis', 
                    ha='center', va='center', fontsize=16, color='#7F8C8D')
@@ -1754,29 +1753,29 @@ def generate_rating_volume_correlation_plot(chatbot_id: str, period: int, conver
         else:
             # Process ratings and conversations by date
             daily_data = {}
-
+            
             # Process ratings
             for rating_record in ratings_data:
                 try:
                     created_at = rating_record.get('created_at')
                     rating = rating_record.get('rating')
-
+                    
                     if created_at and rating:
                         if created_at.endswith('Z'):
                             timestamp = datetime.fromisoformat(created_at.replace('Z', '+00:00'))
                         else:
                             timestamp = datetime.fromisoformat(created_at)
-
+                        
                         date_key = timestamp.strftime("%Y-%m-%d")
-
+                        
                         if date_key not in daily_data:
                             daily_data[date_key] = {'ratings': [], 'conversations': 0}
                         daily_data[date_key]['ratings'].append(rating)
-
+                        
                 except Exception as e:
                     logger.debug(f"Error processing rating for correlation: {e}")
                     continue
-
+            
             # Process conversations
             valid_conversations = validate_conversation_data(conversations)
             for convo in valid_conversations:
@@ -1791,16 +1790,16 @@ def generate_rating_volume_correlation_plot(chatbot_id: str, period: int, conver
                         else:
                             timestamp = datetime.fromisoformat(timestamp_str)
                         date_key = timestamp.strftime("%Y-%m-%d")
-
+                    
                     if date_key:
                         if date_key not in daily_data:
                             daily_data[date_key] = {'ratings': [], 'conversations': 0}
                         daily_data[date_key]['conversations'] += 1
-
+                        
                 except Exception as e:
                     logger.debug(f"Error processing conversation for correlation: {e}")
                     continue
-
+            
             if not daily_data:
                 ax.text(0.5, 0.5, 'No correlation data available', 
                        ha='center', va='center', fontsize=16, color='#7F8C8D')
@@ -1809,25 +1808,25 @@ def generate_rating_volume_correlation_plot(chatbot_id: str, period: int, conver
                 conversation_counts = []
                 avg_ratings = []
                 dates = []
-
+                
                 for date_key in sorted(daily_data.keys()):
                     data = daily_data[date_key]
                     if data['ratings']:  # Only include days with ratings
                         avg_rating = sum(data['ratings']) / len(data['ratings'])
                         conversation_count = data['conversations']
-
+                        
                         conversation_counts.append(conversation_count)
                         avg_ratings.append(avg_rating)
                         dates.append(date_key)
-
+                
                 if len(conversation_counts) >= 2:
                     # Create scatter plot
                     scatter = ax.scatter(conversation_counts, avg_ratings, alpha=0.7, s=80, 
                                        c=avg_ratings, cmap='RdYlGn', vmin=1, vmax=5,
                                        edgecolors='white', linewidth=1.5)
-
+                    
                     plt.colorbar(scatter, ax=ax, label='Average Rating')
-
+                    
                     # Add trend line if possible
                     if len(conversation_counts) > 2:
                         try:
@@ -1835,7 +1834,7 @@ def generate_rating_volume_correlation_plot(chatbot_id: str, period: int, conver
                             p = np.poly1d(z)
                             x_trend = np.linspace(min(conversation_counts), max(conversation_counts), 100)
                             ax.plot(x_trend, p(x_trend), "--", color='#E74C3C', linewidth=2, alpha=0.8)
-
+                            
                             # Calculate correlation
                             correlation = np.corrcoef(conversation_counts, avg_ratings)[0, 1]
                             if not np.isnan(correlation):
@@ -1844,25 +1843,25 @@ def generate_rating_volume_correlation_plot(chatbot_id: str, period: int, conver
                                         fontsize=11, fontweight='bold')
                         except Exception as e:
                             logger.debug(f"Could not fit trend line: {e}")
-
+                    
                     ax.set_xlabel('Daily Conversation Count', fontsize=12, fontweight='bold')
                     ax.set_ylabel('Average Rating', fontsize=12, fontweight='bold')
                     ax.set_ylim(0.5, 5.5)
                     ax.grid(True, alpha=0.3)
                     ax.spines['top'].set_visible(False)
                     ax.spines['right'].set_visible(False)
-
+                    
                 else:
                     ax.text(0.5, 0.5, 'Insufficient data for correlation analysis\n(Need at least 2 data points)', 
                            ha='center', va='center', fontsize=14, color='#7F8C8D')
-
+        
         period_text = f"(Last {period} days)" if period > 0 else "(All Time)"
         ax.set_title(f'Rating vs Conversation Volume Correlation {period_text}', fontsize=20, fontweight='bold', pad=20)
         plt.tight_layout()
-
+        
         success = save_plot_to_supabase(plt, "Rating volume correlation plot", chatbot_id, period)
         return success
-
+        
     except Exception as e:
         logger.error(f"Error generating rating volume correlation plot: {e}")
         return False
@@ -1874,9 +1873,9 @@ def generate_engagement_level_distribution(conversations: List[Dict], chatbot_id
         plt.style.use('default')
         fig, ax = plt.subplots(1, 1, figsize=(10, 10), dpi=150)
         fig.patch.set_facecolor('white')
-
+        
         valid_conversations = validate_conversation_data(conversations)
-
+        
         if not valid_conversations:
             ax.text(0.5, 0.5, 'No engagement data available', 
                    ha='center', va='center', fontsize=16, color='#7F8C8D')
@@ -1890,7 +1889,7 @@ def generate_engagement_level_distribution(conversations: List[Dict], chatbot_id
                 "Highly Engaged (10-19 msgs)": 0,
                 "Power Users (20+ msgs)": 0
             }
-
+            
             for convo in valid_conversations:
                 if "messages" not in convo or not isinstance(convo["messages"], list):
                     continue
@@ -1899,14 +1898,13 @@ def generate_engagement_level_distribution(conversations: List[Dict], chatbot_id
                     messages = convo["messages"]
                     user_messages = [msg for msg in messages if msg.get("role") == "user"]
                     user_count = len(user_messages)
-
+                    
                     if user_count == 0:
                         continue
-
-                    # Categorize into mutually exclusive engagement levels
-                    if user_count == 1:
+                    
+                    if user_count >= 1:
                         engagement_stages["Initial Contact"] += 1
-                    elif 2 <= user_count <= 4:
+                    if 2 <= user_count <= 4:
                         engagement_stages["Engaged (2-4 msgs)"] += 1
                     elif 5 <= user_count <= 9:
                         engagement_stages["Active (5-9 msgs)"] += 1
@@ -1914,39 +1912,39 @@ def generate_engagement_level_distribution(conversations: List[Dict], chatbot_id
                         engagement_stages["Highly Engaged (10-19 msgs)"] += 1
                     elif user_count >= 20:
                         engagement_stages["Power Users (20+ msgs)"] += 1
-
+                        
                 except Exception as e:
                     logger.debug(f"Error processing engagement level: {e}")
                     continue
-
+            
             non_zero_engagement = [(stage, value) for stage, value in engagement_stages.items() if value > 0]
-
+            
             if non_zero_engagement:
                 stages = list(engagement_stages.keys())
                 colors = ['#1ABC9C', '#3498DB', '#9B59B6', '#E67E22', '#E74C3C']
-
+                
                 pie_labels, pie_values = zip(*non_zero_engagement)
                 pie_colors = [colors[stages.index(label)] for label in pie_labels]
-
+                
                 wedges, texts, autotexts = ax.pie(pie_values, labels=pie_labels, colors=pie_colors,
                                                   autopct='%1.1f%%', startangle=90,
                                                   textprops={'fontsize': 10, 'fontweight': 'bold'},
                                                   wedgeprops=dict(width=0.7, edgecolor='white', linewidth=2))
-
+                
                 total_users = sum(pie_values)
                 ax.text(0, 0, f'{total_users:,}\nUsers', ha='center', va='center', 
                         fontsize=14, fontweight='bold', color='#2C3E50')
             else:
                 ax.text(0.5, 0.5, 'No valid engagement data', 
                        ha='center', va='center', fontsize=16, color='#7F8C8D')
-
+        
         period_text = f"({period} days)" if period > 0 else "(All Time)"
         ax.set_title(f'Engagement Level Distribution {period_text}', fontsize=20, fontweight='bold', pad=20)
         plt.tight_layout()
-
+        
         success = save_plot_to_supabase(plt, "Engagement level distribution plot", chatbot_id, period)
         return success
-
+        
     except Exception as e:
         logger.error(f"Error generating engagement level distribution: {e}")
         return False
@@ -1955,16 +1953,16 @@ def generate_engagement_level_distribution(conversations: List[Dict], chatbot_id
 def get_conversation_insights(chatbot_id: str, period: int) -> Optional[Dict]:
     try:
         logger.info(f"Generating insights for chatbot {chatbot_id}, period: {period} days")
-
+        
         processed_ids = set()
         all_conversations = fetch_all_conversations(chatbot_id)
-
+        
         if not all_conversations:
             logger.warning(f"No conversations found for chatbot {chatbot_id}")
             return None
 
         all_conversations = validate_conversation_data(all_conversations)
-
+        
         filtered_conversations = []
         if period > 0:
             current_date = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
@@ -1982,14 +1980,14 @@ def get_conversation_insights(chatbot_id: str, period: int) -> Optional[Dict]:
                         else:
                             timestamp = datetime.fromisoformat(timestamp_str)
                         convo_date = timestamp.replace(hour=0, minute=0, second=0, microsecond=0)
-
+                    
                     if convo_date and convo_date >= cutoff_date:
                         filtered_conversations.append(convo)
                         processed_ids.add(convo["id"])
                     elif not convo_date:
                         filtered_conversations.append(convo)
                         processed_ids.add(convo["id"])
-
+                        
                 except Exception as e:
                     logger.debug(f"Error processing date for conversation {convo.get('id')}: {e}")
                     filtered_conversations.append(convo)
@@ -2015,15 +2013,15 @@ def get_conversation_insights(chatbot_id: str, period: int) -> Optional[Dict]:
                 for message in messages:
                     if not isinstance(message, dict):
                         continue
-
+                        
                     role = message.get("role")
                     content = message.get("content", "")
-
+                    
                     if role == "user" and content.strip():
                         user_queries.append(content.strip())
                     elif role == "assistant" and content.strip():
                         assistant_responses.append(content.strip())
-
+                        
             except Exception as e:
                 logger.debug(f"Error processing messages for conversation {convo.get('id')}: {e}")
                 continue
@@ -2042,35 +2040,35 @@ def get_conversation_insights(chatbot_id: str, period: int) -> Optional[Dict]:
         top_user_queries_json = {"queries": top_user_queries_dict}
 
         plot_results = {}
-
+        
         logger.info("Generating message analysis plots...")
         plot_results['message_distribution'] = generate_message_distribution(user_queries, assistant_responses, chatbot_id, period)
         plot_results['message_length'] = generate_message_length_analysis(user_queries, assistant_responses, chatbot_id, period)
         plot_results['message_complexity'] = generate_message_complexity_analysis(user_queries, assistant_responses, chatbot_id, period)
         plot_results['performance_metrics'] = generate_key_performance_metrics(user_queries, assistant_responses, chatbot_id, period)
-
+        
         logger.info("Generating sentiment analysis plots...")
         plot_results['sentiment_analysis'] = generate_sentiment_analysis(user_queries, chatbot_id, period)
         plot_results['sentiment_scores'] = generate_sentiment_score_distribution(user_queries, chatbot_id, period)
-
+        
         logger.info("Generating chat volume plot...")
         plot_results['chat_volume'] = generate_chat_volume_plot(conversations, chatbot_id, period)
-
+        
         logger.info("Generating activity pattern plots...")
         plot_results['peak_hours'] = generate_peak_hours_activity_plot(conversations, chatbot_id, period)
         plot_results['day_of_week'] = generate_day_of_week_activity_plot(conversations, chatbot_id, period)
         plot_results['business_hours'] = generate_business_hours_analysis_plot(conversations, chatbot_id, period)
-
+        
         logger.info("Generating quality analysis plots...")
         plot_results['quality_analysis'] = generate_conversation_quality_analysis(conversations, chatbot_id, period)
         plot_results['quality_correlation'] = generate_quality_correlation_plot(conversations, chatbot_id, period)
         plot_results['resolution_analysis'] = generate_resolution_analysis_plot(conversations, chatbot_id, period)
-
+        
         logger.info("Generating engagement analysis plots...")
         plot_results['engagement_funnel'] = generate_user_engagement_funnel(conversations, chatbot_id, period)
         plot_results['message_distribution_users'] = generate_user_message_distribution(conversations, chatbot_id, period)
         plot_results['engagement_levels'] = generate_engagement_level_distribution(conversations, chatbot_id, period)
-
+        
         logger.info("Generating rating analysis plots...")
         plot_results['rating_distribution'] = generate_rating_distribution_plot(chatbot_id, period)
         plot_results['rating_trends'] = generate_rating_trends_plot(chatbot_id, period)
@@ -2116,7 +2114,7 @@ def get_conversation_insights(chatbot_id: str, period: int) -> Optional[Dict]:
             logger.error(f"Error saving insights to database: {e}")
 
         return insights_data
-
+        
     except Exception as e:
         logger.error(f"Error generating conversation insights for chatbot {chatbot_id}: {e}")
         return None
@@ -2128,13 +2126,13 @@ def update_tokens():
         logger.info("Starting token update process")
         chatbot_ids = get_distinct_chatbot_ids()
         today = datetime.now().date().isoformat()
-
+        
         if not chatbot_ids:
             logger.warning("No chatbot IDs found for token update")
             return
 
         successful_updates = 0
-
+        
         for chatbot_id in chatbot_ids:
             try:
                 response = supabase.table('testing_zaps2') \
@@ -2149,17 +2147,17 @@ def update_tokens():
 
                 total_input_tokens = 0
                 total_output_tokens = 0
-
+                
                 for row in response.data:
                     try:
                         input_tokens = row.get('input_tokens')
                         output_tokens = row.get('output_tokens')
-
+                        
                         if input_tokens is not None:
                             total_input_tokens += int(input_tokens)
                         if output_tokens is not None:
                             total_output_tokens += int(output_tokens)
-
+                            
                     except (ValueError, TypeError) as e:
                         logger.debug(f"Error converting token values for chatbot {chatbot_id}: {e}")
                         continue
@@ -2177,7 +2175,7 @@ def update_tokens():
                     try:
                         current_input = int(existing_tokens.data[0].get('input_tokens') or 0)
                         current_output = int(existing_tokens.data[0].get('output_tokens') or 0)
-
+                        
                         supabase.table('chat_tokens') \
                             .update({
                                 'input_tokens': current_input + total_input_tokens,
@@ -2185,7 +2183,7 @@ def update_tokens():
                             }) \
                             .eq('chatbot_id', chatbot_id) \
                             .execute()
-
+                            
                     except (ValueError, TypeError) as e:
                         logger.error(f"Error updating existing tokens for chatbot {chatbot_id}: {e}")
                         continue
@@ -2206,7 +2204,7 @@ def update_tokens():
                 continue
 
         logger.info(f"Token update process completed. Updated {successful_updates}/{len(chatbot_ids)} chatbots")
-
+        
     except Exception as e:
         logger.error(f"Error in update_tokens: {e}")
         raise
@@ -2216,11 +2214,11 @@ def process_chatbot_data():
     try:
         logger.info(f"Starting data processing at {datetime.now()}")
         chatbot_ids = get_distinct_chatbot_ids()
-
+        
         if not chatbot_ids:
             logger.warning("No chatbot IDs found for processing")
             return
-
+            
         logger.info(f"Found {len(chatbot_ids)} distinct chatbot IDs")
 
         periods = [0, 2, 7, 10]
@@ -2236,7 +2234,7 @@ def process_chatbot_data():
                     try:
                         logger.info(f"Analyzing {period}-day period for {chatbot_id}")
                         insights = get_conversation_insights(chatbot_id, period)
-
+                        
                         if insights:
                             logger.info(f"Successfully generated insights for {chatbot_id} ({period} days)")
                             logger.info(f"Total conversations: {insights['total_conversations']}")
@@ -2244,12 +2242,12 @@ def process_chatbot_data():
                             successful_tasks += 1
                         else:
                             logger.warning(f"Failed to generate insights for {chatbot_id} ({period} days)")
-
+                            
                     except Exception as e:
                         logger.error(f"Error processing period {period} for chatbot {chatbot_id}: {e}")
                     finally:
                         completed_tasks += 1
-
+                        
                     progress = (completed_tasks / total_tasks) * 100
                     logger.info(f"Progress: {completed_tasks}/{total_tasks} ({progress:.1f}%)")
 
@@ -2259,7 +2257,7 @@ def process_chatbot_data():
 
         logger.info(f"Completed data processing at {datetime.now()}")
         logger.info(f"Success rate: {successful_tasks}/{total_tasks} ({(successful_tasks/total_tasks)*100:.1f}%)")
-
+        
     except Exception as e:
         logger.error(f"Error in process_chatbot_data: {e}")
         raise
@@ -2277,7 +2275,7 @@ def update_job_status(job_statuses: List[Dict]):
 
         supabase.table('insights_schedule').insert(status_data).execute()
         logger.info("Job statuses updated successfully")
-
+        
     except Exception as e:
         logger.error(f"Error updating job status: {e}")
         raise
@@ -2285,13 +2283,13 @@ def update_job_status(job_statuses: List[Dict]):
 
 if __name__ == "__main__":
     plt.ioff()
-
+    
     job_statuses = []
     overall_success = True
-
+    
     try:
         logger.info("Starting analytics job execution")
-
+        
         try:
             logger.info("Starting token update job")
             update_tokens()
@@ -2302,7 +2300,7 @@ if __name__ == "__main__":
                 "error": None
             })
             logger.info("Token update job completed successfully")
-
+            
         except Exception as e:
             logger.error(f"Token update job failed: {e}")
             job_statuses.append({
@@ -2323,7 +2321,7 @@ if __name__ == "__main__":
                 "error": None
             })
             logger.info("Data processing job completed successfully")
-
+            
         except Exception as e:
             logger.error(f"Data processing job failed: {e}")
             job_statuses.append({
@@ -2352,14 +2350,14 @@ if __name__ == "__main__":
             "timestamp": datetime.now().isoformat(),
             "error": str(e)
         })
-
+        
         try:
             update_job_status(job_statuses)
         except Exception as status_error:
             logger.error(f"Failed to update failure status: {status_error}")
-
+            
         sys.exit(1)
-
+    
     finally:
         plt.close('all')
         logger.info("Analytics execution completed")
